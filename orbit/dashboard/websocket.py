@@ -42,7 +42,11 @@ class DashboardWebSocket:
     def __init__(self, bus: EventBus) -> None:
         self._bus = bus
         self._clients: set[web.WebSocketResponse] = set()
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._bus.subscribe("__all__", self._on_event)
+
+    def set_loop(self, loop: asyncio.AbstractEventLoop) -> None:
+        self._loop = loop
 
     def _on_event(self, event: OrbitEvent) -> None:
         """Forward qualifying events to all connected dashboard clients."""
@@ -58,16 +62,20 @@ class DashboardWebSocket:
             "payload": event.payload,
         }, default=str)
 
-        dead = []
-        for ws in self._clients:
+        loop = self._loop
+        if loop is None or loop.is_closed():
             try:
-                # Fire-and-forget; aiohttp handles the actual send
-                asyncio.ensure_future(ws.send_str(msg))
-            except Exception:
-                dead.append(ws)
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                pass
 
-        for ws in dead:
-            self._clients.discard(ws)
+        if loop and loop.is_running():
+            for ws in list(self._clients):
+                if not ws.closed:
+                    try:
+                        asyncio.run_coroutine_threadsafe(ws.send_str(msg), loop)
+                    except Exception:
+                        self._clients.discard(ws)
 
     async def handle(self, request: web.Request) -> web.WebSocketResponse:
         """aiohttp route handler for /ws."""

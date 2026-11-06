@@ -66,6 +66,7 @@ class PhoneWebSocketServer:
         if self._running:
             return
         self._running = True
+        self._loop = asyncio.get_running_loop()
         port = self._config.phone_websocket_port
         try:
             self._server = await websockets.serve(

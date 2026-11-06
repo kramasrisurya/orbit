@@ -213,6 +213,10 @@ class OrbitApp:
         """Start all subsystems in the correct order."""
         logger.info("=== ORBIT starting ===")
 
+        loop = asyncio.get_running_loop()
+        self.bus.set_loop(loop)
+        self.dash_ws.set_loop(loop)
+
         # 1. Phone WebSocket server (async)
         await self.phone_ws.start()
 

@@ -166,13 +166,18 @@ class PhoneNotifier:
         if self._ws is None:
             return False
         try:
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.ensure_future(self._ws.broadcast("notification", payload))
-            else:
-                loop.run_until_complete(self._ws.broadcast("notification", payload))
-            return True
+            loop = getattr(self._ws, "_loop", None)
+            if loop is None or loop.is_closed():
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    pass
+            if loop and loop.is_running():
+                asyncio.run_coroutine_threadsafe(
+                    self._ws.broadcast("notification", payload), loop
+                )
+                return True
+            return False
         except Exception:
             logger.exception("WebSocket notification send failed")
             return False
