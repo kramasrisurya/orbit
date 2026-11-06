@@ -90,6 +90,9 @@ class GestureRecognizer:
                 min_detection_confidence=0.6,
             )
             logger.info("GestureRecognizer initialized (MediaPipe Hands)")
+        except (ImportError, ModuleNotFoundError):
+            logger.warning("MediaPipe not installed — GestureRecognizer disabled")
+            self._hands = None
         except Exception:
             logger.exception("Failed to initialize GestureRecognizer")
             self._hands = None

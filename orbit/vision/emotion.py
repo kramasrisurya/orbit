@@ -74,6 +74,9 @@ class EmotionDetector:
                 min_detection_confidence=0.5,
             )
             logger.info("EmotionDetector initialized (heuristic, MediaPipe FaceMesh)")
+        except (ImportError, ModuleNotFoundError):
+            logger.warning("MediaPipe not installed — EmotionDetector disabled")
+            self._mesh = None
         except Exception:
             logger.exception("Failed to initialize EmotionDetector")
             self._mesh = None

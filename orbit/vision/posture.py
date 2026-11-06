@@ -61,6 +61,9 @@ class PostureTracker:
                 min_detection_confidence=0.5,
             )
             logger.info("PostureTracker initialized (MediaPipe FaceMesh)")
+        except (ImportError, ModuleNotFoundError):
+            logger.warning("MediaPipe not installed — PostureTracker disabled")
+            self._mesh = None
         except Exception:
             logger.exception("Failed to initialize PostureTracker")
             self._mesh = None

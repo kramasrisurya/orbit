@@ -68,6 +68,9 @@ class GazeTracker:
                 min_detection_confidence=0.5,
             )
             logger.info("GazeTracker initialized (MediaPipe FaceMesh)")
+        except (ImportError, ModuleNotFoundError):
+            logger.warning("MediaPipe not installed — GazeTracker disabled")
+            self._mesh = None
         except Exception:
             logger.exception("Failed to initialize GazeTracker")
             self._mesh = None
