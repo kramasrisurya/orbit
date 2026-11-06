@@ -1,0 +1,77 @@
+presence:
+  lock_timeout_sec: 15
+  keep_alive_interval_sec: 30
+  face_recognition_threshold: 0.6
+  ble_grace_period_sec: 10
+
+vision:
+  frame_skip: 2
+  gesture_debounce_frames: 3
+  emotion_stability_sec: 5
+  posture_alert_threshold_sec: 300
+  multi_person_min_count: 2
+  camera_index: 0
+
+phone:
+  websocket_port: 8765
+  ble_broadcast_interval_sec: 3
+  geo_fence_radius_m: 200
+  geo_lock_delay_min: 5
+  approval_timeout_sec: 30
+
+security:
+  intruder_action: "alert_and_lock"
+  record_on_intruder: true
+  record_duration_sec: 30
+  snapshot_dir: "~/ORBIT/security/snapshots"
+  recording_dir: "~/ORBIT/security/recordings"
+
+health:
+  posture_alert_cooldown_min: 10
+  screen_break_interval_min: 45
+  stress_threshold_min: 3
+  ambient_light_threshold: 30
+  daily_report_time: "18:00"
+
+modes:
+  work:
+    lock_timeout_sec: 15
+    notifications: "normal"
+    apps_to_open: ["code", "firefox", "terminal"]
+    wallpaper: "~/Wallpapers/work.jpg"
+  meeting:
+    lock_timeout_sec: 60
+    notifications: "muted"
+    apps_to_open: ["zoom"]
+    wallpaper: "~/Wallpapers/neutral.jpg"
+  home:
+    lock_timeout_sec: 30
+    notifications: "normal"
+    apps_to_open: ["firefox", "spotify"]
+    wallpaper: "~/Wallpapers/home.jpg"
+  presenting:
+    lock_timeout_sec: 300
+    notifications: "critical_only"
+    apps_to_open: ["powerpoint"]
+    wallpaper: "~/Wallpapers/presentation.jpg"
+
+gestures:
+  palm_open: "screenshot"
+  fist: "lock"
+  wave: "next_app"
+  thumbs_up: "meeting_mode"
+  two_finger_circle: "launch:firefox"
+  point: "click"
+
+dashboard:
+  host: "127.0.0.1"
+  port: 3000
+
+notifications:
+  intruder_alert: true
+  pc_locked: true
+  posture: true
+  stress: true
+  break_reminder: true
+  mode_changed: true
+  approval_request: true

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORBIT — Ambient Awareness</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel2: #1c2330;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --purple: #bc8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 20px;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  h1 { font-size: 22px; font-weight: 600; }
+  h1 span { color: var(--accent); }
+  .conn { font-size: 13px; color: var(--muted); }
+  .conn .dot { display:inline-block; width:8px; height:8px; border-radius:50%;
+    background: var(--red); margin-right:6px; }
+  .conn.on .dot { background: var(--green); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .card h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin-bottom: 14px; font-weight: 600;
+  }
+  .big { font-size: 34px; font-weight: 700; }
+  .sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+  .status-pill {
+    display: inline-block; padding: 6px 14px; border-radius: 20px;
+    font-size: 15px; font-weight: 600;
+  }
+  .st-present { background: rgba(63,185,80,0.15); color: var(--green); }
+  .st-absent  { background: rgba(139,148,158,0.15); color: var(--muted); }
+  .st-unknown { background: rgba(210,153,34,0.15); color: var(--yellow); }
+
+  .mode-tag {
+    display: inline-block; padding: 6px 14px; border-radius: 20px;
+    background: rgba(88,166,255,0.15); color: var(--accent);
+    font-size: 15px; font-weight: 600;
+  }
+
+  .cam-wrap { position: relative; }
+  .cam-wrap img {
+    width: 100%; border-radius: 8px; background: #000;
+    aspect-ratio: 4/3; object-fit: cover;
+  }
+  .cam-placeholder {
+    width: 100%; aspect-ratio: 4/3; border-radius: 8px;
+    background: var(--panel2); display: flex; align-items: center;
+    justify-content: center; color: var(--muted); font-size: 14px;
+  }
+
+  .stat-row { display: flex; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .v { font-weight: 600; color: var(--accent); }
+
+  .btn {
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 16px; font-size: 14px; cursor: pointer;
+    margin: 4px 4px 0 0; transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #0d1117; border-color: var(--accent); }
+  .btn.primary:hover { filter: brightness(1.1); }
+
+  .log {
+    max-height: 220px; overflow-y: auto; font-size: 12px;
+    font-family: "SF Mono", Monaco, monospace;
+  }
+  .log .entry { padding: 4px 0; border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; }
+  .log .t { color: var(--muted); flex-shrink: 0; }
+  .log .type { color: var(--purple); flex-shrink: 0; }
+
+  .pairing-img { width: 100%; max-width: 240px; border-radius: 8px;
+    background: #fff; padding: 8px; display: none; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>ORBIT <span>·</span> Ambient Awareness</h1>
+    <div class="conn" id="conn"><span class="dot"></span>Connecting…</div>
+  </header>
+
+  <div class="grid">
+    <!-- Presence -->
+    <div class="card">
+      <h2>Presence</h2>
+      <div class="status-pill st-unknown" id="presence">Unknown</div>
+      <div class="sub" id="presence-sub">Waiting for data…</div>
+    </div>
+
+    <!-- Mode -->
+    <div class="card">
+      <h2>Current Mode</h2>
+      <div class="mode-tag" id="mode">work</div>
+      <div class="sub" id="mode-sub">—</div>
+    </div>
+
+    <!-- Focus -->
+    <div class="card">
+      <h2>Focus Session</h2>
+      <div class="big" id="focus">0 min</div>
+      <div class="sub" id="focus-sub">Not active</div>
+      <div style="margin-top:14px">
+        <button class="btn primary" onclick="sendCmd('focus_start')">Start</button>
+        <button class="btn" onclick="sendCmd('focus_end')">End</button>
+      </div>
+    </div>
+
+    <!-- Camera -->
+    <div class="card">
+      <h2>Camera Feed</h2>
+      <div class="cam-wrap">
+        <div class="cam-placeholder" id="cam-placeholder">No feed</div>
+        <img id="cam-img" style="display:none" alt="camera">
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="card">
+      <h2>Today</h2>
+      <div class="stat-row"><span>Focus</span><span class="v" id="s-focus">0 min</span></div>
+      <div class="stat-row"><span>Screen time</span><span class="v" id="s-screen">0 min</span></div>
+      <div class="stat-row"><span>Breaks</span><span class="v" id="s-breaks">0</span></div>
+      <div class="stat-row"><span>Posture alerts</span><span class="v" id="s-posture">0</span></div>
+      <div class="stat-row"><span>Intruder alerts</span><span class="v" id="s-intruder">0</span></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="card">
+      <h2>Quick Actions</h2>
+      <button class="btn" onclick="switchMode('work')">Work</button>
+      <button class="btn" onclick="switchMode('meeting')">Meeting</button>
+      <button class="btn" onclick="switchMode('away')">Away</button>
+      <button class="btn" onclick="switchMode('off')">Off</button>
+      <hr style="border-color:var(--border); margin:14px 0">
+      <button class="btn" onclick="showPairing()">📱 Pair Phone</button>
+      <button class="btn" id="btn-enroll" onclick="enrollFace()">👤 Enroll Face</button>
+      <img class="pairing-img" id="pairing-img" alt="QR">
+    </div>
+
+    <!-- Event Log -->
+    <div class="card" style="grid-column: 1 / -1">
+      <h2>Event Log</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+<script>
+let ws = null;
+let reconnectDelay = 1000;
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+  ws.onopen = () => {
+    document.getElementById('conn').classList.add('on');
+    document.getElementById('conn').innerHTML = '<span class="dot"></span>Live';
+    reconnectDelay = 1000;
+  };
+  ws.onclose = () => {
+    document.getElementById('conn').classList.remove('on');
+    document.getElementById('conn').innerHTML = '<span class="dot"></span>Disconnected';
+    setTimeout(connect, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 1.5, 10000);
+  };
+  ws.onmessage = (e) => {
+    try { handleEvent(JSON.parse(e.data)); } catch (err) {}
+  };
+}
+
+function handleEvent(ev) {
+  addLog(ev.type, ev.payload);
+  switch (ev.type) {
+    case 'PRESENCE_CHANGED':
+      setPresence(ev.payload.state);
+      break;
+    case 'MODE_CHANGED':
+      setMode(ev.payload.mode);
+      break;
+    case 'FOCUS_SESSION_START':
+      setFocus(true);
+      break;
+    case 'FOCUS_SESSION_END':
+      setFocus(false);
+      break;
+    case 'DASHBOARD_UPDATE':
+      if (ev.payload.frame_b64) {
+        const img = document.getElementById('cam-img');
+        const ph = document.getElementById('cam-placeholder');
+        img.src = 'data:image/jpeg;base64,' + ev.payload.frame_b64;
+        img.style.display = 'block';
+        ph.style.display = 'none';
+      }
+      break;
+  }
+}
+
+function setPresence(state) {
+  const el = document.getElementById('presence');
+  const s = (state || 'unknown').toLowerCase();
+  el.textContent = s.replace('_', ' ');
+  el.className = 'status-pill';
+  if (s.startsWith('present')) el.classList.add('st-present');
+  else if (s === 'absent') el.classList.add('st-absent');
+  else el.classList.add('st-unknown');
+  document.getElementById('presence-sub').textContent =
+    `Updated ${new Date().toLocaleTimeString()}`;
+}
+
+function setMode(mode) {
+  document.getElementById('mode').textContent = mode;
+  document.getElementById('mode-sub').textContent =
+    `Switched ${new Date().toLocaleTimeString()}`;
+}
+
+function setFocus(active) {
+  document.getElementById('focus-sub').textContent = active ? 'Active now' : 'Not active';
+}
+
+function addLog(type, payload) {
+  const log = document.getElementById('log');
+  const t = new Date().toLocaleTimeString();
+  const div = document.createElement('div');
+  div.className = 'entry';
+  div.innerHTML = `<span class="t">${t}</span><span class="type">${type}</span>` +
+    `<span>${JSON.stringify(payload).slice(0, 120)}</span>`;
+  log.prepend(div);
+  // Cap log length
+  while (log.children.length > 100) log.removeChild(log.lastChild);
+}
+
+function sendCmd(action) {
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ action }));
+  }
+}
+function switchMode(mode) {
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ action: 'switch_mode', mode }));
+  }
+}
+
+async function showPairing() {
+  const res = await fetch('/api/pairing_qr');
+  const data = await res.json();
+  const img = document.getElementById('pairing-img');
+  if (data.qr) {
+    img.src = 'data:image/png;base64,' + data.qr;
+    img.style.display = 'block';
+  }
+}
+
+async function enrollFace() {
+  const btn = document.getElementById('btn-enroll');
+  const prevText = btn.textContent;
+  btn.textContent = 'Enrolling...';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/enroll', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      alert('Face enrolled successfully!');
+    } else {
+      alert('Face enrollment failed: ' + (data.error || 'No face detected in camera.'));
+    }
+  } catch (err) {
+    alert('Enrollment error: ' + err.message);
+  } finally {
+    btn.textContent = prevText;
+    btn.disabled = false;
+  }
+}
+
+// Poll stats every 30s
+async function pollStats() {
+  try {
+    const res = await fetch('/api/stats');
+    const s = await res.json();
+    document.getElementById('s-focus').textContent = (s.focus_minutes||0) + ' min';
+    document.getElementById('s-screen').textContent = (s.screen_time_min||0) + ' min';
+    document.getElementById('s-breaks').textContent = s.breaks_taken||0;
+    document.getElementById('s-posture').textContent = s.posture_alerts||0;
+    document.getElementById('s-intruder').textContent = s.intruder_alerts||0;
+  } catch (e) {}
+}
+
+connect();
+pollStats();
+setInterval(pollStats, 30000);
+</script>
+</body>
+</html>

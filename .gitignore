@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# ORBIT runtime data
+~/.orbit/
+~/ORBIT/
+*.db
+*.db-wal
+*.db-shm
+
+# Config (keep the bundled default, ignore user overrides)
+orbit/config/user.yaml
+
+# Secrets
+firebase_credentials.json
+*.key
+*.pem
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Android
+orbit-phone/.gradle/
+orbit-phone/app/build/
+orbit-phone/build/
+orbit-phone/local.properties
+orbit-phone/.idea/
+*.apk
+*.aab
+orbit-phone/app/google-services.json
+
+# OS
+.DS_Store
+Thumbs.db
