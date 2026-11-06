@@ -26,6 +26,18 @@ BUFFER_SIZE = 5
 POSITIVE_THRESHOLD = 3  # 3 of 5 must be positive
 
 
+def _extract_opencv_embedding(face_crop: np.ndarray) -> np.ndarray:
+    """Extract a normalized 128-d facial embedding using OpenCV."""
+    gray = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY) if len(face_crop.shape) == 3 else face_crop
+    eq = cv2.equalizeHist(gray)
+    resized = cv2.resize(eq, (16, 8), interpolation=cv2.INTER_AREA).astype(np.float64)
+    flat = resized.flatten()
+    norm = np.linalg.norm(flat)
+    if norm > 1e-6:
+        flat = flat / norm
+    return flat
+
+
 class FaceRecognizer:
     """
     Verifies whether a detected face belongs to the enrolled owner.
@@ -69,18 +81,29 @@ class FaceRecognizer:
         and persist it to disk.
         """
         try:
-            import face_recognition
-
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            locations = face_recognition.face_locations(rgb)
-            if not locations:
-                logger.warning("Enroll: no face found in frame")
-                return False
-
-            # Use the first (largest) face
-            top, right, bottom, left = locations[0]
-            encoding = face_recognition.face_encodings(rgb, [locations[0]])[0]
-            arr = np.asarray(encoding, dtype=np.float64)
+            try:
+                import face_recognition
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                locations = face_recognition.face_locations(rgb)
+                if not locations:
+                    logger.warning("Enroll: no face found in frame")
+                    return False
+                encoding = face_recognition.face_encodings(rgb, [locations[0]])[0]
+                arr = np.asarray(encoding, dtype=np.float64)
+            except ImportError:
+                # Fallback to OpenCV face detection + normalized embedding
+                from vision.face_detect import FaceDetector
+                detector = FaceDetector()
+                boxes = detector.detect(frame)
+                if not boxes:
+                    logger.warning("Enroll: no face found in frame (OpenCV)")
+                    return False
+                # Pick largest face
+                largest = max(boxes, key=lambda b: b.w * b.h)
+                crop = frame[largest.y:largest.y + largest.h, largest.x:largest.x + largest.w]
+                if crop.size == 0:
+                    return False
+                arr = _extract_opencv_embedding(crop)
 
             MODEL_DIR.mkdir(parents=True, exist_ok=True)
             target = MODEL_DIR / f"{label}.enc"
@@ -107,9 +130,6 @@ class FaceRecognizer:
             return (True, 1.0)
 
         try:
-            import face_recognition
-
-            # Crop the face region with some padding
             pad = 10
             x1 = max(0, face_box.x - pad)
             y1 = max(0, face_box.y - pad)
@@ -120,18 +140,22 @@ class FaceRecognizer:
             if crop.size == 0:
                 return (False, 0.0)
 
-            rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
-            locations = face_recognition.face_locations(rgb)
-            if not locations:
-                return (False, 0.0)
+            try:
+                import face_recognition
+                rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+                locations = face_recognition.face_locations(rgb)
+                if not locations:
+                    return (False, 0.0)
 
-            crop_encoding = face_recognition.face_encodings(rgb, locations)[0]
-            distance = face_recognition.face_distance([self._encoding], crop_encoding)[0]
-
-            # face_recognition: lower distance = more similar.
-            # Default tolerance is 0.6; we use the configured threshold.
-            is_match = distance <= self._threshold
-            confidence = max(0.0, 1.0 - distance)
+                crop_encoding = face_recognition.face_encodings(rgb, locations)[0]
+                distance = face_recognition.face_distance([self._encoding], crop_encoding)[0]
+                is_match = distance <= self._threshold
+                confidence = max(0.0, 1.0 - distance)
+            except ImportError:
+                crop_encoding = _extract_opencv_embedding(crop)
+                distance = float(np.linalg.norm(self._encoding - crop_encoding))
+                is_match = distance <= self._threshold
+                confidence = max(0.0, 1.0 - (distance / 2.0))
 
             # Update rolling buffer
             self._buffer.append(is_match)

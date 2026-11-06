@@ -134,7 +134,7 @@ def run_interactive(camera_index: int, label: str = "owner") -> int:
                     continue
 
                 if enroll_from_frame(frame, label=label):
-                    print(f"[✓] Success: Face enrolled for '{label}'!")
+                    print(f"[+] Success: Face enrolled for '{label}'!")
                     print(f"    Saved to: {MODEL_DIR / f'{label}.enc'}")
                     enrolled = True
                     break
@@ -163,7 +163,7 @@ def run_file(file_path: Path, label: str = "owner") -> int:
 
     print(f"[*] Processing image: {file_path}...")
     if enroll_from_frame(img, label=label):
-        print(f"[✓] Success: Face enrolled for '{label}' from {file_path}!")
+        print(f"[+] Success: Face enrolled for '{label}' from {file_path}!")
         return 0
     else:
         print("[x] Error: Failed to detect and enroll face from image.")
