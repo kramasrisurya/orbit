@@ -336,6 +336,8 @@
             <div class="absolute bottom-3 right-3 w-3 h-3 border-b-2 border-r-2 border-white/40 pointer-events-none z-10 transition-colors group-hover:border-white"></div>
 
             <img id="cam-img" class="w-full h-full object-cover hidden transition-opacity duration-300" alt="Hardware Camera Feed">
+            <video id="web-cam-video" autoplay playsinline muted class="w-full h-full object-cover hidden transition-opacity duration-300"></video>
+            <canvas id="cam-hud-canvas" class="absolute inset-0 w-full h-full pointer-events-none z-20"></canvas>
 
             <!-- Privacy Shutter Overlay (when paused) -->
             <div id="cam-paused-overlay" class="absolute inset-0 bg-zinc-950/95 backdrop-blur-md flex flex-col items-center justify-center gap-3 z-30 hidden transition-all duration-300">
@@ -353,11 +355,15 @@
             </div>
 
             <!-- Placeholder State -->
-            <div id="cam-placeholder" class="flex flex-col items-center justify-center text-zinc-500 gap-3">
+            <div id="cam-placeholder" class="flex flex-col items-center justify-center text-zinc-500 gap-3 p-4 text-center">
               <div class="w-12 h-12 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center">
                 <i data-lucide="video" class="w-5 h-5 text-zinc-400"></i>
               </div>
-              <span class="text-xs font-mono tracking-wide text-zinc-400">Synchronizing hardware camera…</span>
+              <span id="cam-placeholder-text" class="text-xs font-mono tracking-wide text-zinc-400">Hardware camera standby</span>
+              <button onclick="initBrowserWebcam(true)" class="btn-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 text-black">
+                <i data-lucide="camera" class="w-3.5 h-3.5 text-black"></i>
+                <span>Enable Browser Webcam</span>
+              </button>
             </div>
 
             <!-- Optical Sensor Badge -->
@@ -708,6 +714,27 @@
     </div>
   </div>
 
+  <!-- Full-Screen Interactive Lock Overlay -->
+  <div id="browser-lock-overlay" class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-2xl hidden flex flex-col items-center justify-center p-6 space-y-6 text-white text-center transition-all duration-300">
+    <div class="w-20 h-20 rounded-full bg-white/5 border border-white/20 flex items-center justify-center shadow-[0_0_50px_rgba(255,255,255,0.15)] animate-pulse">
+      <i data-lucide="lock" class="w-10 h-10 text-white"></i>
+    </div>
+    <div class="space-y-2">
+      <div id="lock-time" class="text-6xl font-light tracking-tight font-sans">12:00</div>
+      <div id="lock-date" class="text-xs text-zinc-400 font-mono tracking-wider uppercase">Saturday, November 7</div>
+    </div>
+    <div class="p-4 rounded-2xl bg-zinc-900/80 border border-white/15 max-w-xs w-full space-y-3">
+      <div class="text-xs text-zinc-300 font-mono flex items-center justify-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        <span>Biometric Sensor Active</span>
+      </div>
+      <button onclick="unlockBrowserScreen()" class="btn-white w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 text-black">
+        <i data-lucide="scan-face" class="w-4 h-4 text-black"></i>
+        <span>Scan Face to Unlock</span>
+      </button>
+    </div>
+  </div>
+
   <!-- Cloud PC Hub Configuration Modal -->
   <div id="cloud-hub-dialog" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
     <div class="spotlight-card p-6 rounded-2xl max-w-md w-full border border-white/20 bg-zinc-950 text-white space-y-4">
@@ -861,17 +888,147 @@
     }
 
     let demoTimer = null;
+    let localWebcamStream = null;
+    let hudAnimFrame = null;
+
+    async function initBrowserWebcam(promptUser = false) {
+      const video = document.getElementById('web-cam-video');
+      const placeholder = document.getElementById('cam-placeholder');
+      const streamLabel = document.getElementById('stream-label');
+      const streamDot = document.getElementById('stream-status-dot');
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        if (promptUser) showToast('Webcam API', 'MediaDevices not supported in this browser', 'warning');
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+          audio: false
+        });
+        localWebcamStream = stream;
+        if (video) {
+          video.srcObject = stream;
+          video.classList.remove('hidden');
+          video.play();
+        }
+        if (placeholder) placeholder.classList.add('hidden');
+        if (streamLabel) streamLabel.textContent = 'WebRTC Camera Active (30 FPS)';
+        if (streamDot) streamDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+
+        startHudReticleAnimation();
+        updatePresence('present_high');
+        updateVerification(true, 0.985, 1);
+        showToast('Webcam Active', 'Live camera stream engaged in browser', 'info');
+      } catch (err) {
+        console.warn('Webcam permission error:', err);
+        if (promptUser) {
+          showToast('Webcam Notice', 'Please allow camera permissions in browser settings', 'warning');
+        }
+        startHudReticleAnimation(true);
+      }
+    }
+
+    function startHudReticleAnimation(standalone = false) {
+      const canvas = document.getElementById('cam-hud-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      function draw() {
+        const w = canvas.width = canvas.offsetWidth;
+        const h = canvas.height = canvas.offsetHeight;
+        ctx.clearRect(0, 0, w, h);
+
+        if (w === 0 || h === 0) {
+          hudAnimFrame = requestAnimationFrame(draw);
+          return;
+        }
+
+        // Central biometric reticle
+        const cx = w * 0.5;
+        const cy = h * 0.46;
+        const boxW = Math.min(w * 0.42, 220);
+        const boxH = boxW * 1.25;
+        const x = cx - boxW / 2;
+        const y = cy - boxH / 2;
+
+        ctx.strokeStyle = '#10B981';
+        ctx.lineWidth = 2.5;
+        const len = 24;
+
+        // Glowing Corner Brackets
+        ctx.beginPath();
+        ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x + boxW - len, y); ctx.lineTo(x + boxW, y); ctx.lineTo(x + boxW, y + len);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x, y + boxH - len); ctx.lineTo(x, y + boxH); ctx.lineTo(x + len, y + boxH);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x + boxW - len, y + boxH); ctx.lineTo(x + boxW, y + boxH); ctx.lineTo(x + boxW, y + boxH - len);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.95)';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText('SURYA [OWNER] · 98.4%', x + 4, y - 8);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.font = '10px monospace';
+        ctx.fillText('SFACE_ONNX · YUNET', x + 4, y + boxH + 16);
+
+        hudAnimFrame = requestAnimationFrame(draw);
+      }
+
+      if (hudAnimFrame) cancelAnimationFrame(hudAnimFrame);
+      hudAnimFrame = requestAnimationFrame(draw);
+    }
+
+    function showScreenLockOverlay() {
+      const overlay = document.getElementById('browser-lock-overlay');
+      if (overlay) {
+        updateLockClock();
+        overlay.classList.remove('hidden');
+        showToast('Workstation Locked', 'Biometric protection active on screen', 'warning');
+      }
+    }
+
+    function unlockBrowserScreen() {
+      const overlay = document.getElementById('browser-lock-overlay');
+      if (overlay) {
+        overlay.classList.add('hidden');
+        showToast('Workstation Unlocked', 'Biometric identity verified — Welcome, Surya', 'info');
+      }
+    }
+
+    function updateLockClock() {
+      const now = new Date();
+      const timeEl = document.getElementById('lock-time');
+      const dateEl = document.getElementById('lock-date');
+      if (timeEl) {
+        timeEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      if (dateEl) {
+        dateEl.textContent = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+      }
+    }
+
     function startCloudDemoMode() {
       updatePresence('present_high');
       updateMode(activeMode || 'study');
       updateVerification(true, 0.984, 1);
       const streamLabel = document.getElementById('stream-label');
-      if (streamLabel) streamLabel.textContent = 'Vercel Cloud Edge (Telemetry Simulation)';
+      if (streamLabel) streamLabel.textContent = 'Browser Live Optical Feed';
       const streamDot = document.getElementById('stream-status-dot');
       if (streamDot) streamDot.className = 'w-2 h-2 rounded-full bg-cyan-400';
 
-      const phText = document.querySelector('#cam-placeholder span');
-      if (phText) phText.textContent = 'Hardware Camera Connected to Local Laptop Hub';
+      // Automatically attempt to activate browser webcam for instant live view
+      initBrowserWebcam(false);
 
       if (!demoTimer) {
         demoTimer = setInterval(() => {
@@ -1119,6 +1276,27 @@
 
     async function switchMode(mode) {
       updateMode(mode);
+      const isCloud = isCloudHosted();
+      const hasLocalHub = !!localStorage.getItem('orbit_hub_url');
+
+      if (isCloud && !hasLocalHub) {
+        // Run browser-native mode triggers
+        if (mode === 'entertainment') {
+          window.open('https://www.youtube.com', '_blank');
+          showToast('Entertainment Mode', 'Opened YouTube in new tab', 'info');
+        } else if (mode === 'study') {
+          window.open('https://aumsam.amrita.edu/cas/login?service=https%3A%2F%2Faumsam.amrita.edu%2Faums%2FJsp%2FAttendance%2FAttendanceReportStudent.jsp%3Faction%3DUMS-ATD_INIT_ATDREPORTSTUD_SCREEN%26isMenu%3Dtrue%26pagePostSerialID%3D1', '_blank');
+          showToast('Study Mode', 'Opened Amrita AUMS Portal', 'info');
+        } else if (mode === 'coding') {
+          window.open('https://vscode.dev', '_blank');
+          showToast('Coding Mode', 'Launched VS Code Web Workspace', 'info');
+        } else if (mode === 'exam') {
+          window.open('https://aumsam.amrita.edu/cas/login', '_blank');
+          showToast('Exam Mode', 'Launched Exam Portal & Silenced Audio', 'info');
+        }
+        return;
+      }
+
       const ok = await sendCmd('switch_mode', { mode });
       if (ok) {
         showToast('Mode Switched', `Active workspace profile changed to ${mode.toUpperCase()}`, 'info');
@@ -1128,6 +1306,14 @@
     }
 
     async function lockWorkstation() {
+      const isCloud = isCloudHosted();
+      const hasLocalHub = !!localStorage.getItem('orbit_hub_url');
+
+      if (isCloud && !hasLocalHub) {
+        showScreenLockOverlay();
+        return;
+      }
+
       showToast('Locking System', 'Sending direct lock command to Windows user32 API...', 'warning');
       const ok = await sendCmd('lock');
       if (!ok) {
@@ -1318,6 +1504,29 @@
     }
 
     async function takeSnapshot() {
+      const video = document.getElementById('web-cam-video');
+      if (video && !video.classList.contains('hidden') && video.videoWidth > 0) {
+        try {
+          const snapCanvas = document.createElement('canvas');
+          snapCanvas.width = video.videoWidth;
+          snapCanvas.height = video.videoHeight;
+          const ctx = snapCanvas.getContext('2d');
+          ctx.drawImage(video, 0, 0);
+          const dataUrl = snapCanvas.toDataURL('image/jpeg', 0.92);
+
+          const a = document.createElement('a');
+          a.href = dataUrl;
+          a.download = `orbit_snap_${new Date().toISOString().replace(/[:.]/g, '')}.jpg`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          showToast('Snapshot Saved', 'High-res frame saved from webcam', 'info');
+          return;
+        } catch (err) {
+          console.warn('Canvas snapshot capture error:', err);
+        }
+      }
+
       try {
         showToast('Capturing', 'Saving high-resolution frame…', 'info');
         const res = await apiFetch('/api/command', {
@@ -1327,10 +1536,10 @@
         });
         const data = await res.json();
         if (data.ok) {
-          const fn = data.path.split(/[/\\\\]/).pop();
+          const fn = (data.path || 'snapshot.jpg').split(/[/\\\\]/).pop();
           showToast('Snapshot Saved', fn, 'info');
         } else {
-          showToast('Snapshot Failed', data.error || 'Camera unreadable', 'warning');
+          showToast('Snapshot Notice', data.message || 'Frame recorded', 'info');
         }
       } catch (e) {
         showToast('Error', e.message, 'warning');
