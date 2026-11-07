@@ -97,7 +97,15 @@ class UniversalControl:
 
         user32 = ctypes.windll.user32
         pt = POINT()
-        adb_bin = r"C:\Users\hp\AppData\Local\Android\Sdk\platform-tools\adb.exe"
+        import shutil
+        import os
+        from pathlib import Path
+        adb_bin = shutil.which("adb")
+        if not adb_bin:
+            local_app = os.environ.get("LOCALAPPDATA", "")
+            cand = Path(local_app) / "Android" / "Sdk" / "platform-tools" / "adb.exe"
+            if cand.exists():
+                adb_bin = str(cand)
 
         while self._running:
             time.sleep(0.02)  # 50 Hz poll rate

@@ -21,12 +21,27 @@ logger = logging.getLogger("orbit.command.windows_api")
 
 SCREENSHOT_DIR = Path.home() / "ORBIT" / "screenshots"
 
+def find_brave() -> str | None:
+    """Find Brave Browser executable across standard Windows installation paths."""
+    if sys.platform != "win32":
+        return shutil.which("brave") or shutil.which("brave-browser")
+    candidates = [
+        Path(os.environ.get("PROGRAMFILES", r"C:\Program Files")) / "BraveSoftware" / "Brave-Browser" / "Application" / "brave.exe",
+        Path(os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)")) / "BraveSoftware" / "Brave-Browser" / "Application" / "brave.exe",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "BraveSoftware" / "Brave-Browser" / "Application" / "brave.exe",
+    ]
+    for c in candidates:
+        if c.exists():
+            return str(c)
+    return shutil.which("brave")
+
+
 # Common app name → executable/command resolution
 APP_ALIASES: dict[str, str] = {
     "code": "code",
     "firefox": "firefox",
     "chrome": "chrome",
-    "brave": r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+    "brave": find_brave() or "brave",
     "youtube": "https://www.youtube.com",
     "aums": "https://aumsam.amrita.edu/cas/login?service=https%3A%2F%2Faumsam.amrita.edu%2Faums%2FJsp%2FAttendance%2FAttendanceReportStudent.jsp%3Faction%3DUMS-ATD_INIT_ATDREPORTSTUD_SCREEN%26isMenu%3Dtrue%26pagePostSerialID%3D1",
     "terminal": "wt" if sys.platform == "win32" else "xterm",
@@ -128,8 +143,8 @@ def launch_app(app_name: str) -> bool:
     # Handle web URL shortcuts
     if cmd.startswith("http://") or cmd.startswith("https://"):
         try:
-            brave_path = Path(r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe")
-            if brave_path.exists() and sys.platform == "win32":
+            brave_path = find_brave()
+            if brave_path and Path(brave_path).exists() and sys.platform == "win32":
                 import ctypes
                 ctypes.windll.shell32.ShellExecuteW(None, "open", str(brave_path), cmd, None, 1)
                 logger.info("Opened URL %s in Brave via ShellExecuteW", cmd)

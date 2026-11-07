@@ -587,9 +587,14 @@ class DashboardServer:
                     if target_param == "mobile" or request.query.get("push", "") == "true":
                         # Push directly via ADB to phone's Download folder for instant delivery
                         try:
-                            adb_path = r"C:\Users\hp\AppData\Local\Android\Sdk\platform-tools\adb.exe"
-                            import subprocess
-                            if Path(adb_path).exists():
+                            import shutil
+                            adb_path = shutil.which("adb")
+                            if not adb_path:
+                                local_app = os.environ.get("LOCALAPPDATA", "")
+                                candidate = Path(local_app) / "Android" / "Sdk" / "platform-tools" / "adb.exe"
+                                if candidate.exists():
+                                    adb_path = str(candidate)
+                            if adb_path and Path(adb_path).exists():
                                 subprocess.Popen([adb_path, "push", str(target), f"/sdcard/Download/{target.name}"])
                                 logger.info("ADB direct pushed %s to /sdcard/Download/%s", target, target.name)
                         except Exception:

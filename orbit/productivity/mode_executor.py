@@ -129,19 +129,14 @@ class ModeExecutor:
 
         opened_brave = False
         if prefer_brave:
-            brave_candidates = [
-                Path(r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"),
-                Path(r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe"),
-            ]
-            for candidate in brave_candidates:
-                if candidate.exists():
-                    try:
-                        subprocess.Popen([str(candidate), url])
-                        logger.info("Opened %s in Brave Browser", url)
-                        opened_brave = True
-                        break
-                    except Exception as e:
-                        logger.warning("Failed to open Brave via Popen: %s", e)
+            brave_candidate = getattr(windows_api, "find_brave", lambda: None)()
+            if brave_candidate and Path(brave_candidate).exists():
+                try:
+                    subprocess.Popen([str(brave_candidate), url])
+                    logger.info("Opened %s in Brave Browser", url)
+                    opened_brave = True
+                except Exception as e:
+                    logger.warning("Failed to open Brave via Popen: %s", e)
 
         if not opened_brave:
             if sys.platform == "win32":

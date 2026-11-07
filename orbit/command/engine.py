@@ -102,6 +102,10 @@ class CommandEngine:
         """
         # Actions triggered directly from paired phone remote or phone shake do not require phone self-approval
         if action in SENSITIVE_ACTIONS and self._approval is not None and not source.startswith("phone") and not source.startswith("shake"):
+            loop = getattr(self._bus, "_loop", None)
+            if loop and loop.is_running():
+                asyncio.run_coroutine_threadsafe(self._execute_with_approval(action, source), loop)
+                return
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
@@ -110,8 +114,7 @@ class CommandEngine:
                     loop.run_until_complete(self._execute_with_approval(action, source))
                 return
             except RuntimeError:
-                # No loop (called from a thread) — run inline with a new loop
-                logger.debug("No running loop; running approval inline")
+                logger.debug("No running loop; running action without async approval")
 
         self._run_action(action, source)
 
