@@ -1,0 +1,23 @@
+{
+  "name": "ORBIT Biometric Control",
+  "short_name": "ORBIT",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "description": "Autonomous presence, biometric telemetry, and desktop companion.",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23000000'/><circle cx='50' cy='50' r='36' stroke='%23ffffff' stroke-width='8' fill='none'/><line x1='15' y1='38' x2='85' y2='62' stroke='%23ffffff' stroke-width='8' stroke-linecap='round'/></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23000000'/><circle cx='50' cy='50' r='36' stroke='%23ffffff' stroke-width='8' fill='none'/><line x1='15' y1='38' x2='85' y2='62' stroke='%23ffffff' stroke-width='8' stroke-linecap='round'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+# Vercel Serverless Function requirements
+# Uses Python standard library (http.server, json, urllib) for instant, zero-dependency deployment

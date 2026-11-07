@@ -255,6 +255,16 @@ Phone WS:  ws://0.0.0.0:8765
 
 Navigate to `http://localhost:8080` for the live view.
 
+### 7. Deploy to Vercel (Cloud Web Hub)
+
+You can deploy the ORBIT Web Dashboard globally to Vercel in 1 click:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkramasrisurya%2Forbit)
+
+- **Instant Cloud Showcase**: Fully interactive ambient telemetry, biometric radar demo, workspace mode controls, and focus timer in your browser.
+- **Link to Laptop Hub**: Click **Hub** in the header to enter your local machine's LAN IP or tunnel URL (`ngrok` / `cloudflared` / Tailscale) to stream hardware optical feeds and trigger Windows desktop modes remotely.
+- **1-Tap APK Download**: Mobile visitors can download the latest Android companion APK artifact directly from the web interface.
+
 ---
 
 ## Configuration reference

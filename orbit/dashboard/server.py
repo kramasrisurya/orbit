@@ -31,6 +31,10 @@ from dashboard.websocket import DashboardWebSocket
 logger = logging.getLogger("orbit.dashboard.server")
 
 STATIC_DIR = Path(__file__).parent / "static"
+if not (STATIC_DIR / "index.html").exists():
+    candidate_public = Path(__file__).resolve().parents[2] / "public"
+    if (candidate_public / "index.html").exists():
+        STATIC_DIR = candidate_public
 
 
 class DashboardServer:

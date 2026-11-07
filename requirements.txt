@@ -25,11 +25,11 @@ firebase-admin>=6.2.0
 PyYAML>=6.0
 cryptography>=41.0
 
-# Windows integration
-win10toast>=0.9
-pystray>=0.19.5
-pywin32>=306
-pycaw>=20240210
+# Windows integration (guarded for cross-platform and Vercel cloud deployment)
+win10toast>=0.9; sys_platform == 'win32'
+pystray>=0.19.5; sys_platform == 'win32'
+pywin32>=306; sys_platform == 'win32'
+pycaw>=20240210; sys_platform == 'win32'
 
 # Testing / dev
 pytest>=7.4.0

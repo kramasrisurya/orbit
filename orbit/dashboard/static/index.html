@@ -262,6 +262,16 @@
 
       <!-- Quick Action Utilities with Hotkey Badges -->
       <div class="order-2 lg:order-3 flex items-center gap-2">
+        <button id="btn-cloud-hub" onclick="openCloudHubDialog()" class="btn-ghost px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 text-zinc-300 hover:text-white" title="Configure PC Hub Connection">
+          <i data-lucide="cloud" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span id="cloud-hub-label">Hub</span>
+        </button>
+
+        <a href="https://github.com/kramasrisurya/orbit/actions" target="_blank" rel="noopener noreferrer" class="btn-ghost px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 text-zinc-300 hover:text-white hidden sm:flex" title="Download Android Companion APK">
+          <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span>APK</span>
+        </a>
+
         <button onclick="openPairingDialog()" class="btn-ghost px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2">
           <i data-lucide="smartphone" class="w-3.5 h-3.5 text-zinc-300"></i>
           <span>Pair Device</span>
@@ -698,6 +708,34 @@
     </div>
   </div>
 
+  <!-- Cloud PC Hub Configuration Modal -->
+  <div id="cloud-hub-dialog" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="spotlight-card p-6 rounded-2xl max-w-md w-full border border-white/20 bg-zinc-950 text-white space-y-4">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="cloud" class="w-5 h-5 text-cyan-400"></i>
+          <h3 class="font-bold text-sm">Connect Local ORBIT PC Hub</h3>
+        </div>
+        <button onclick="closeCloudHubDialog()" class="text-zinc-400 hover:text-white text-lg leading-none">&times;</button>
+      </div>
+
+      <p class="text-xs text-zinc-400 leading-relaxed font-mono">
+        When accessing ORBIT from Vercel Cloud, link your local machine's IP, Tailscale address, or Ngrok / Cloudflare tunnel URL to stream hardware optical feed and trigger Windows desktop modes.
+      </p>
+
+      <div class="space-y-2">
+        <label class="text-[11px] font-mono text-zinc-300">PC Hub URL or Tunnel:</label>
+        <input type="text" id="input-hub-url" placeholder="e.g. http://192.168.1.100:8080 or https://xyz.ngrok-free.app" class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-white/15 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono" />
+        <div class="text-[10px] text-zinc-500 font-mono">Leave blank to run in Cloud Interactive Demo mode.</div>
+      </div>
+
+      <div class="flex gap-2 pt-2">
+        <button onclick="saveCloudHubUrl()" class="btn-white flex-1 py-2 rounded-xl text-xs font-bold">Connect Hub</button>
+        <button onclick="resetCloudHubToDemo()" class="btn-ghost py-2 px-3 rounded-xl text-xs">Run Demo</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Interactive JavaScript Engine with GSAP Orchestration -->
   <script>
     let ws = null;
@@ -767,24 +805,137 @@
       }
     }
 
-    // 4. WebSocket Engine
+    // 4. Hybrid Cloud & Local Connection Engine
+    function isCloudHosted() {
+      return location.hostname !== 'localhost' && 
+             location.hostname !== '127.0.0.1' && 
+             !location.hostname.startsWith('192.168.') && 
+             !location.hostname.startsWith('10.');
+    }
+
+    function apiFetch(path, options = {}) {
+      const hub = localStorage.getItem('orbit_hub_url');
+      const url = (hub && hub.trim()) ? `${hub.trim().replace(/\/+$/, '')}${path}` : path;
+      return fetch(url, options);
+    }
+
+    // Cloud PC Hub Modal Controls
+    function openCloudHubDialog() {
+      const current = localStorage.getItem('orbit_hub_url') || '';
+      const input = document.getElementById('input-hub-url');
+      if (input) input.value = current;
+      const dlg = document.getElementById('cloud-hub-dialog');
+      if (dlg) dlg.classList.remove('hidden');
+    }
+
+    function closeCloudHubDialog() {
+      const dlg = document.getElementById('cloud-hub-dialog');
+      if (dlg) dlg.classList.add('hidden');
+    }
+
+    function saveCloudHubUrl() {
+      const input = document.getElementById('input-hub-url');
+      const val = input ? input.value.trim() : '';
+      if (val) {
+        localStorage.setItem('orbit_hub_url', val);
+        showToast('Hub Linked', `Connecting to ${val}`, 'info');
+      } else {
+        localStorage.removeItem('orbit_hub_url');
+        showToast('Cloud Demo Active', 'Operating in Vercel Interactive Showcase', 'info');
+      }
+      closeCloudHubDialog();
+      if (ws) {
+        try { ws.close(); } catch (e) {}
+      }
+      connect();
+    }
+
+    function resetCloudHubToDemo() {
+      localStorage.removeItem('orbit_hub_url');
+      closeCloudHubDialog();
+      showToast('Demo Active', 'Running Vercel Cloud Interactive Showcase', 'info');
+      if (ws) {
+        try { ws.close(); } catch (e) {}
+      }
+      connect();
+    }
+
+    let demoTimer = null;
+    function startCloudDemoMode() {
+      updatePresence('present_high');
+      updateMode(activeMode || 'study');
+      updateVerification(true, 0.984, 1);
+      const streamLabel = document.getElementById('stream-label');
+      if (streamLabel) streamLabel.textContent = 'Vercel Cloud Edge (Telemetry Simulation)';
+      const streamDot = document.getElementById('stream-status-dot');
+      if (streamDot) streamDot.className = 'w-2 h-2 rounded-full bg-cyan-400';
+
+      const phText = document.querySelector('#cam-placeholder span');
+      if (phText) phText.textContent = 'Hardware Camera Connected to Local Laptop Hub';
+
+      if (!demoTimer) {
+        demoTimer = setInterval(() => {
+          const conf = 0.96 + Math.random() * 0.035;
+          const confEl = document.getElementById('telemetry-conf');
+          if (confEl) confEl.textContent = `${(conf * 100).toFixed(1)}%`;
+        }, 4000);
+      }
+    }
+
     function connect() {
-      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      ws = new WebSocket(`${proto}://${location.host}/ws`);
+      if (demoTimer) { clearInterval(demoTimer); demoTimer = null; }
+
+      const hub = localStorage.getItem('orbit_hub_url');
+      const isCloud = isCloudHosted();
+
+      if (isCloud && (!hub || !hub.trim())) {
+        document.getElementById('conn-dot').className = 'w-2 h-2 rounded-full bg-cyan-400 ring-4 ring-cyan-400/20';
+        document.getElementById('conn-text').textContent = 'Vercel Cloud (Live Showcase)';
+        startCloudDemoMode();
+        fetchStatus();
+        return;
+      }
+
+      let wsUrl;
+      if (hub && hub.trim()) {
+        const clean = hub.trim().replace(/\/+$/, '');
+        const wsProto = clean.startsWith('https') ? 'wss' : 'ws';
+        const hostPart = clean.replace(/^https?:\/\//, '');
+        wsUrl = `${wsProto}://${hostPart}/ws`;
+      } else {
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        wsUrl = `${proto}://${location.host}/ws`;
+      }
+
+      try {
+        ws = new WebSocket(wsUrl);
+      } catch (err) {
+        handleWsDisconnect();
+        return;
+      }
 
       ws.onopen = () => {
         document.getElementById('conn-dot').className = 'w-2 h-2 rounded-full bg-emerald-400 ring-4 ring-emerald-400/20';
-        document.getElementById('conn-text').textContent = 'Connected Local Daemon';
+        document.getElementById('conn-text').textContent = hub ? 'Linked PC Hub' : 'Connected Local Daemon';
         ws.send(JSON.stringify({ action: 'set_visibility', visible: !document.hidden }));
         fetchStatus();
       };
 
-      ws.onclose = () => {
-        document.getElementById('conn-dot').className = 'w-2 h-2 rounded-full bg-rose-500 ring-4 ring-rose-500/20';
-        document.getElementById('conn-text').textContent = 'Daemon Disconnected — Retrying…';
-        setTimeout(connect, reconnectDelay);
-        reconnectDelay = Math.min(reconnectDelay * 1.5, 8000);
-      };
+      ws.onclose = handleWsDisconnect;
+      ws.onerror = handleWsDisconnect;
+
+      function handleWsDisconnect() {
+        if (isCloud) {
+          document.getElementById('conn-dot').className = 'w-2 h-2 rounded-full bg-cyan-400 ring-4 ring-cyan-400/20';
+          document.getElementById('conn-text').textContent = 'Vercel Cloud (Demo Mode)';
+          startCloudDemoMode();
+        } else {
+          document.getElementById('conn-dot').className = 'w-2 h-2 rounded-full bg-rose-500 ring-4 ring-rose-500/20';
+          document.getElementById('conn-text').textContent = 'Daemon Disconnected — Retrying…';
+          setTimeout(connect, reconnectDelay);
+          reconnectDelay = Math.min(reconnectDelay * 1.5, 8000);
+        }
+      }
 
       ws.onmessage = (e) => {
         try {
@@ -953,7 +1104,7 @@
         try { ws.send(JSON.stringify(payload)); } catch(e) {}
       }
       try {
-        const res = await fetch('/api/command', {
+        const res = await apiFetch('/api/command', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -1014,7 +1165,7 @@
       loading.classList.remove('hidden');
 
       try {
-        const res = await fetch('/api/pairing_qr');
+        const res = await apiFetch('/api/pairing_qr');
         const data = await res.json();
         if (data.qr) {
           img.src = 'data:image/png;base64,' + data.qr;
@@ -1042,7 +1193,7 @@
       btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> <span>Scan Fingerprint on Phone...</span>';
       refreshIcons();
       try {
-        const reqRes = await fetch('/api/enroll/request', { method: 'POST' });
+        const reqRes = await apiFetch('/api/enroll/request', { method: 'POST' });
         const reqData = await reqRes.json();
         if (!reqData.ok || !reqData.token) {
           showToast('Request Failed', reqData.error || 'Failed to dispatch phone prompt', 'warning');
@@ -1056,7 +1207,7 @@
         let authorized = false;
         for (let i = 0; i < 45; i++) {
           await new Promise(r => setTimeout(r, 1000));
-          const statusRes = await fetch(`/api/enroll/status?token=${token}`);
+          const statusRes = await apiFetch(`/api/enroll/status?token=${token}`);
           const statusData = await statusRes.json();
           if (statusData.ok && statusData.status === 'completed') {
             authorized = true;
@@ -1086,7 +1237,7 @@
 
     async function toggleCameraPause() {
       try {
-        const res = await fetch('/api/command', {
+        const res = await apiFetch('/api/command', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'toggle_camera' })
@@ -1127,7 +1278,7 @@
 
     async function toggleEcoMode() {
       try {
-        const res = await fetch('/api/command', {
+        const res = await apiFetch('/api/command', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'toggle_eco' })
@@ -1169,7 +1320,7 @@
     async function takeSnapshot() {
       try {
         showToast('Capturing', 'Saving high-resolution frame…', 'info');
-        const res = await fetch('/api/command', {
+        const res = await apiFetch('/api/command', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'take_snapshot' })
@@ -1188,7 +1339,7 @@
 
     async function toggleStayAwake() {
       try {
-        const res = await fetch('/api/command', {
+        const res = await apiFetch('/api/command', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'toggle_stay_awake' })
@@ -1223,7 +1374,7 @@
 
     async function fetchStatus() {
       try {
-        const res = await fetch('/api/status');
+        const res = await apiFetch('/api/status');
         const s = await res.json();
         if (s.presence) updatePresence(s.presence);
         if (s.mode) updateMode(s.mode);
@@ -1256,7 +1407,7 @@
         return;
       }
       try {
-        const res = await fetch('/api/clipboard/send_to_phone', {
+        const res = await apiFetch('/api/clipboard/send_to_phone', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text })
@@ -1346,7 +1497,7 @@
     async function pushFileToPhone(filename) {
       try {
         showToast('Sending to Phone', `Pushing ${filename} to your phone...`, 'info');
-        const res = await fetch('/api/files/push_to_phone', {
+        const res = await apiFetch('/api/files/push_to_phone', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ filename })
@@ -1387,7 +1538,7 @@
     let prevStats = { focus: 0, posture: 0, intruder: 0 };
     async function pollStats() {
       try {
-        const res = await fetch('/api/stats');
+        const res = await apiFetch('/api/stats');
         const s = await res.json();
         
         animateCounter('stat-focus', prevStats.focus, s.focus_minutes || 0, ' min');
