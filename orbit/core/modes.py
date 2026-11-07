@@ -20,7 +20,10 @@ from core.presence import PresenceState
 
 logger = logging.getLogger("orbit.core.modes")
 
-VALID_MODES = {"work", "meeting", "home", "presenting", "away"}
+VALID_MODES = {
+    "entertainment", "study", "coding", "exam",
+    "work", "meeting", "home", "presenting", "away"
+}
 
 
 class ModeManager:
@@ -99,36 +102,34 @@ class ModeManager:
             logger.warning("Cannot switch to invalid mode: %s", new_mode)
             return False
 
-        if new_mode == self._current_mode:
-            logger.debug("Already in mode: %s", new_mode)
-            return False
+        is_same_mode = (new_mode == self._current_mode)
+        if not is_same_mode:
+            self._previous_mode = self._current_mode
+            self._current_mode = new_mode
 
-        self._previous_mode = self._current_mode
-        self._current_mode = new_mode
+            logger.info(
+                "Mode change: %s → %s",
+                self._previous_mode, new_mode,
+            )
 
-        logger.info(
-            "Mode change: %s → %s",
-            self._previous_mode, new_mode,
-        )
+            # Update stay-awake overrides based on mode
+            if self._presence_core:
+                if new_mode == "presenting":
+                    self._presence_core.add_stay_awake("presenting")
+                else:
+                    self._presence_core.remove_stay_awake("presenting")
 
-        # Update stay-awake overrides based on mode
-        if self._presence_core:
-            if new_mode == "presenting":
-                self._presence_core.add_stay_awake("presenting")
-            else:
-                self._presence_core.remove_stay_awake("presenting")
+            # Publish event
+            self._bus.publish(OrbitEvent(
+                type=MODE_CHANGED,
+                source="core",
+                payload={
+                    "mode": new_mode,
+                    "previous_mode": self._previous_mode,
+                },
+            ))
 
-        # Publish event
-        self._bus.publish(OrbitEvent(
-            type=MODE_CHANGED,
-            source="core",
-            payload={
-                "mode": new_mode,
-                "previous_mode": self._previous_mode,
-            },
-        ))
-
-        # Delegate to executor
+        # Always delegate to executor (so re-clicking active mode triggers actions like opening Brave / setting volume)
         if self._mode_executor:
             try:
                 self._mode_executor.execute(new_mode)

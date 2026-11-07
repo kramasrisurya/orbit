@@ -11,6 +11,7 @@ import ctypes
 import logging
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -54,6 +55,9 @@ KEYEVENTF_KEYUP = 0x0002
 MOUSEEVENTF_MOVE = 0x0001
 MOUSEEVENTF_LEFTDOWN = 0x0002
 MOUSEEVENTF_LEFTUP = 0x0004
+
+class POINT(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
 
 class KEYBDINPUT(ctypes.Structure):
     _fields_ = [
@@ -129,12 +133,25 @@ def _mouse_input(dx: int = 0, dy: int = 0, flags: int = MOUSEEVENTF_MOVE) -> INP
 # Public API
 # ---------------------------------------------------------------------------
 
+def ensure_input_desktop() -> None:
+    """Ensure the calling thread is attached to the active user's interactive desktop."""
+    if not IS_WINDOWS or not user32:
+        return
+    try:
+        hdesk = user32.OpenInputDesktop(0, False, 0x01FF)
+        if hdesk:
+            user32.SetThreadDesktop(hdesk)
+    except Exception:
+        pass
+
+
 def lock_workstation() -> None:
     """Lock the Windows workstation."""
     if not IS_WINDOWS:
         logger.debug("lock_workstation: not on Windows, skipping")
         return
     try:
+        ensure_input_desktop()
         user32.LockWorkStation()
         logger.info("Workstation locked")
     except Exception as e:
@@ -211,44 +228,205 @@ def simulate_activity() -> None:
         logger.debug("simulate_activity failed: %s", e)
 
 
+def move_cursor(dx: int, dy: int) -> None:
+    """Move cursor by (dx, dy) and update position."""
+    if not IS_WINDOWS or not user32:
+        return
+    try:
+        ensure_input_desktop()
+        pt = POINT()
+        if user32.GetCursorPos(ctypes.byref(pt)):
+            user32.SetCursorPos(pt.x + dx, pt.y + dy)
+        user32.mouse_event(MOUSEEVENTF_MOVE, dx, dy, 0, 0)
+    except Exception as e:
+        logger.error("Failed to move cursor: %s", e)
+
+
+def mouse_click(button: str = "left") -> None:
+    """Simulate mouse click on active desktop."""
+    if not IS_WINDOWS or not user32:
+        return
+    try:
+        ensure_input_desktop()
+        if button == "left":
+            user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+            user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        elif button in ("double", "double_left"):
+            user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+            user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+            time.sleep(0.04)
+            user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+            user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        elif button == "right":
+            # MOUSEEVENTF_RIGHTDOWN = 0x0008, MOUSEEVENTF_RIGHTUP = 0x0010
+            user32.mouse_event(0x0008, 0, 0, 0, 0)
+            user32.mouse_event(0x0010, 0, 0, 0, 0)
+    except Exception as e:
+        logger.error("Failed to click mouse: %s", e)
+
+
+def mouse_scroll(dy: int) -> None:
+    """Simulate mouse wheel scroll."""
+    if not IS_WINDOWS or not user32:
+        return
+    try:
+        ensure_input_desktop()
+        # MOUSEEVENTF_WHEEL = 0x0800
+        user32.mouse_event(0x0800, 0, 0, dy, 0)
+    except Exception as e:
+        logger.error("Failed to scroll mouse: %s", e)
+
+
 def get_clipboard() -> str:
-    """Read the Windows clipboard as text."""
+    """Read the Windows clipboard as text with robust retries."""
     if not IS_WINDOWS:
         return ""
+    import time
     try:
-        user32.OpenClipboard(0)
+        import win32clipboard, win32con
+        for _ in range(8):
+            try:
+                win32clipboard.OpenClipboard()
+                try:
+                    if win32clipboard.IsClipboardFormatAvailable(win32con.CF_UNICODETEXT):
+                        val = win32clipboard.GetClipboardData(win32con.CF_UNICODETEXT)
+                        return val or ""
+                    return ""
+                finally:
+                    win32clipboard.CloseClipboard()
+            except Exception:
+                time.sleep(0.02)
+    except ImportError:
+        pass
+
+    if not user32 or not kernel32:
+        return ""
+    for _ in range(8):
+        if user32.OpenClipboard(0):
+            break
+        time.sleep(0.02)
+    else:
+        return ""
+
+    try:
+        CF_UNICODETEXT = 13
+        user32.GetClipboardData.restype = ctypes.c_void_p
+        user32.GetClipboardData.argtypes = [ctypes.c_uint]
+        h = user32.GetClipboardData(CF_UNICODETEXT)
+        if not h:
+            return ""
+        kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+        ptr = kernel32.GlobalLock(h)
+        if not ptr:
+            return ""
         try:
-            CF_UNICODETEXT = 13
-            h = user32.GetClipboardData(CF_UNICODETEXT)
-            if not h:
-                return ""
-            ptr = ctypes.cast(h, ctypes.c_wchar_p)
-            return ptr.value or ""
+            return ctypes.wstring_at(ptr)
         finally:
-            user32.CloseClipboard()
+            kernel32.GlobalUnlock(h)
     except Exception as e:
         logger.error("Failed to read clipboard: %s", e)
         return ""
+    finally:
+        user32.CloseClipboard()
 
 
 def set_clipboard(text: str) -> None:
-    """Write text to the Windows clipboard."""
+    """Write text to the Windows clipboard with robust retries."""
     if not IS_WINDOWS:
         return
+    import time
+    ensure_input_desktop()
     try:
-        user32.OpenClipboard(0)
-        try:
-            user32.EmptyClipboard()
-            CF_UNICODETEXT = 13
-            buf = ctypes.create_unicode_buffer(text, len(text) + 1)
-            h = kernel32.GlobalAlloc(0x0042, ctypes.sizeof(buf))  # GMEM_MOVEABLE
-            ctypes.memmove(h, buf, ctypes.sizeof(buf))
-            kernel32.GlobalLock = kernel32.GlobalLock
-            user32.SetClipboardData(CF_UNICODETEXT, h)
-        finally:
-            user32.CloseClipboard()
+        import win32clipboard, win32con
+        for _ in range(8):
+            try:
+                win32clipboard.OpenClipboard()
+                try:
+                    win32clipboard.EmptyClipboard()
+                    win32clipboard.SetClipboardText(text, win32con.CF_UNICODETEXT)
+                    return
+                finally:
+                    win32clipboard.CloseClipboard()
+            except Exception:
+                time.sleep(0.02)
+    except ImportError:
+        pass
+
+    if not user32 or not kernel32:
+        return
+    for _ in range(8):
+        if user32.OpenClipboard(0):
+            break
+        time.sleep(0.02)
+    else:
+        return
+
+    try:
+        user32.EmptyClipboard()
+        CF_UNICODETEXT = 13
+        text_bytes = (text + "\0").encode("utf-16-le")
+
+        kernel32.GlobalAlloc.restype = ctypes.c_void_p
+        kernel32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+        kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+        user32.SetClipboardData.restype = ctypes.c_void_p
+        user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+
+        # GMEM_MOVEABLE = 0x0002
+        h = kernel32.GlobalAlloc(0x0002, len(text_bytes))
+        if h:
+            ptr = kernel32.GlobalLock(h)
+            if ptr:
+                ctypes.memmove(ptr, text_bytes, len(text_bytes))
+                kernel32.GlobalUnlock(h)
+                user32.SetClipboardData(CF_UNICODETEXT, h)
+    finally:
+        user32.CloseClipboard()
+
+
+def type_text(text: str) -> None:
+    """Simulate typing text into the currently active window via SendInput."""
+    if not IS_WINDOWS or not user32:
+        return
+    try:
+        ensure_input_desktop()
+        KEYEVENTF_UNICODE = 0x0004
+        KEYEVENTF_KEYUP = 0x0002
+        inputs = []
+        for ch in text:
+            if ch == "\b":
+                d = INPUT()
+                d.type = INPUT_KEYBOARD
+                d.union.ki.wVk = 0x08  # VK_BACK
+                d.union.ki.dwFlags = 0
+                inputs.append(d)
+                u = INPUT()
+                u.type = INPUT_KEYBOARD
+                u.union.ki.wVk = 0x08
+                u.union.ki.dwFlags = KEYEVENTF_KEYUP
+                inputs.append(u)
+                continue
+
+            code = ord(ch)
+            d = INPUT()
+            d.type = INPUT_KEYBOARD
+            d.union.ki.wScan = code
+            d.union.ki.dwFlags = KEYEVENTF_UNICODE
+            inputs.append(d)
+            u = INPUT()
+            u.type = INPUT_KEYBOARD
+            u.union.ki.wScan = code
+            u.union.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP
+            inputs.append(u)
+        if inputs:
+            arr = (INPUT * len(inputs))(*inputs)
+            user32.SendInput(len(inputs), arr, ctypes.sizeof(INPUT))
     except Exception as e:
-        logger.error("Failed to set clipboard: %s", e)
+        logger.error("Failed to type text: %s", e)
 
 
 def change_wallpaper(path: str) -> bool:

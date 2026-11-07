@@ -28,6 +28,8 @@ FORWARDED_EVENTS = {
     "POSTURE_ALERT", "INTRUDER_ALERT", "PC_LOCKED",
     "FOCUS_SESSION_START", "FOCUS_SESSION_END", "DASHBOARD_UPDATE",
     "PHONE_CONNECTED", "PHONE_DISCONNECTED",
+    "CAMERA_PAUSE_CHANGED", "ECO_MODE_CHANGED", "STAY_AWAKE_CHANGED",
+    "CLIPBOARD_UPDATED", "UNIVERSAL_CONTROL_EVENT", "FILE_TRANSFERRED",
 }
 
 
@@ -77,12 +79,20 @@ class DashboardWebSocket:
                     except Exception:
                         self._clients.discard(ws)
 
+    def _notify_stream_state(self, active: bool) -> None:
+        self._bus.publish(OrbitEvent(
+            type="DASHBOARD_STREAM_STATE",
+            source="dashboard",
+            payload={"active": active},
+        ))
+
     async def handle(self, request: web.Request) -> web.WebSocketResponse:
         """aiohttp route handler for /ws."""
         ws = web.WebSocketResponse()
         await ws.prepare(request)
         self._clients.add(ws)
         logger.info("Dashboard client connected (%d total)", len(self._clients))
+        self._notify_stream_state(True)
 
         try:
             async for msg in ws:
@@ -96,6 +106,7 @@ class DashboardWebSocket:
         finally:
             self._clients.discard(ws)
             logger.info("Dashboard client disconnected (%d total)", len(self._clients))
+            self._notify_stream_state(len(self._clients) > 0)
 
         return ws
 
@@ -106,6 +117,11 @@ class DashboardWebSocket:
         except json.JSONDecodeError:
             return
         action = cmd.get("action")
+        if action == "set_visibility":
+            visible = bool(cmd.get("visible", True))
+            self._notify_stream_state(visible and len(self._clients) > 0)
+            return
+
         if action:
             logger.info("Dashboard command: %s", action)
             # Commands are routed via the EventBus by the main app

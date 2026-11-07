@@ -73,7 +73,7 @@ class ShakeDetector(
         val (x, y, z) = event.values
 
         // Gravity-compensated magnitude
-        val magnitude = Math.sqrt((x * x) + (y * y) + (z * z) - SensorManager.GRAVITY_EARTH * SensorManager.GRAVITY_EARTH)
+        val magnitude = Math.sqrt(((x * x) + (y * y) + (z * z) - SensorManager.GRAVITY_EARTH * SensorManager.GRAVITY_EARTH).toDouble())
 
         val now = System.currentTimeMillis()
 
@@ -89,9 +89,6 @@ class ShakeDetector(
     }
 
     private fun onShakeDetected(now: Long) {
-        // Haptic feedback
-        vibrate()
-
         // Window management
         if (now - windowStart > Constants.SHAKE_WINDOW_MS) {
             // New window

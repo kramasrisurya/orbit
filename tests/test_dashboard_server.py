@@ -41,6 +41,9 @@ async def test_dashboard_endpoints(event_bus: EventBus, temp_db: Database, mock_
     app.router.add_post("/api/command", server._handle_command)
     app.router.add_get("/api/pairing_qr", server._handle_pairing_qr)
     app.router.add_post("/api/enroll", server._handle_enroll)
+    app.router.add_get("/api/clipboard", server._handle_get_clipboard)
+    app.router.add_post("/api/clipboard", server._handle_set_clipboard)
+    app.router.add_get("/api/files/list", server._handle_file_list)
 
     async with TestClient(TestServer(app)) as client:
         # 1. Test index page
@@ -70,3 +73,28 @@ async def test_dashboard_endpoints(event_bus: EventBus, temp_db: Database, mock_
         # 5. Test stats endpoint
         resp = await client.get("/api/stats")
         assert resp.status == 200
+
+        # 6. Test enroll endpoint with mock frame from vision engine
+        import numpy as np
+        class MockVision:
+            def get_latest_frame(self):
+                # Return 200x200 black image (no face, so returns error message safely without crash)
+                return np.zeros((200, 200, 3), dtype=np.uint8)
+
+        server._vision = MockVision()
+        resp = await client.post("/api/enroll")
+        assert resp.status in (400, 200)
+        enroll_data = await resp.json()
+        assert "ok" in enroll_data
+
+        # 7. Test clipboard endpoint
+        clip_resp = await client.post("/api/clipboard", json={"text": "Hello Orbit P2P"})
+        assert clip_resp.status == 200
+        clip_data = await clip_resp.json()
+        assert clip_data["ok"] is True
+
+        # 8. Test file list endpoint
+        files_resp = await client.get("/api/files/list")
+        assert files_resp.status == 200
+        files_data = await files_resp.json()
+        assert isinstance(files_data, list)

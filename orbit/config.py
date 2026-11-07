@@ -91,6 +91,7 @@ class Config:
         self.vision_posture_alert_threshold_sec: float = float(r["vision"]["posture_alert_threshold_sec"])
         self.vision_multi_person_min_count: int = int(r["vision"]["multi_person_min_count"])
         self.vision_camera_index: int = int(r["vision"]["camera_index"])
+        self.vision_background_interval_sec: float = float(r.get("vision", {}).get("background_interval_sec", 15.0))
 
         # phone
         self.phone_websocket_port: int = int(r["phone"]["websocket_port"])
@@ -105,6 +106,7 @@ class Config:
         self.security_record_duration_sec: int = int(r["security"]["record_duration_sec"])
         self.security_snapshot_dir: Path = Path(r["security"]["snapshot_dir"]).expanduser()
         self.security_recording_dir: Path = Path(r["security"]["recording_dir"]).expanduser()
+        self.security_webhook_url: str | None = r.get("security", {}).get("webhook_url", None)
 
         # health
         self.health_posture_alert_cooldown_min: int = int(r["health"]["posture_alert_cooldown_min"])

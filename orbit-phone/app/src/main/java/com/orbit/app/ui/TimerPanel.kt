@@ -32,11 +32,31 @@ import org.json.JSONObject
 @Composable
 fun TimerPanel(onBack: () -> Unit) {
     val app = OrbitApp.instance
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     var selectedDuration by remember { mutableIntStateOf(25) }
     var remainingSec by remember { mutableIntStateOf(25 * 60) }
     var isRunning by remember { mutableStateOf(false) }
     var isPaused by remember { mutableStateOf(false) }
+
+    fun onComplete() {
+        // Vibrate 3 times
+        try {
+            val vib = context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as Vibrator
+            repeat(3) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    vib.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
+                }
+                Thread.sleep(300)
+            }
+        } catch (e: Exception) { /* ignore */ }
+
+        // Send focus_end to PC
+        val key = app.prefs.pairingKey?.let { Base64.decode(it, Base64.NO_WRAP) }
+        if (key != null) {
+            app.pcConnection.send("remote", JSONObject().apply { put("action", "focus_end") }, key)
+        }
+    }
 
     // Countdown loop
     LaunchedEffect(isRunning, isPaused) {
@@ -50,26 +70,6 @@ fun TimerPanel(onBack: () -> Unit) {
                 onComplete()
                 break
             }
-        }
-    }
-
-    fun onComplete() {
-        // Vibrate 3 times
-        try {
-            val vib = androidx.compose.ui.platform.LocalContext.current
-                .getSystemService(android.content.Context.VIBRATOR_SERVICE) as Vibrator
-            repeat(3) {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    vib.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
-                }
-                Thread.sleep(300)
-            }
-        } catch (e: Exception) { /* ignore */ }
-
-        // Send focus_end to PC
-        val key = app.prefs.pairingKey?.let { Base64.decode(it, Base64.NO_WRAP) }
-        if (key != null) {
-            app.pcConnection.send("remote", JSONObject().apply { put("action", "focus_end") }, key)
         }
     }
 
@@ -151,10 +151,9 @@ fun TimerPanel(onBack: () -> Unit) {
                             remainingSec = mins * 60
                         }
                     },
+                    label = { Text("${mins}m") },
                     enabled = !isRunning
-                ) {
-                    Text("${mins}m")
-                }
+                )
             }
         }
 

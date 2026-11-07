@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import logging
 
-from command import windows_api
+try:
+    from orbit.command import windows_api
+except ImportError:
+    from command import windows_api
 
 logger = logging.getLogger("orbit.command.apps")
 

@@ -1,326 +1,1582 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ORBIT — Ambient Awareness</title>
-<style>
-  :root {
-    --bg: #0d1117;
-    --panel: #161b22;
-    --panel2: #1c2330;
-    --border: #30363d;
-    --text: #e6edf3;
-    --muted: #8b949e;
-    --accent: #58a6ff;
-    --green: #3fb950;
-    --yellow: #d29922;
-    --red: #f85149;
-    --purple: #bc8cff;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    padding: 20px;
-  }
-  header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 20px;
-  }
-  h1 { font-size: 22px; font-weight: 600; }
-  h1 span { color: var(--accent); }
-  .conn { font-size: 13px; color: var(--muted); }
-  .conn .dot { display:inline-block; width:8px; height:8px; border-radius:50%;
-    background: var(--red); margin-right:6px; }
-  .conn.on .dot { background: var(--green); }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Orbit — Autonomous Presence & Biometric Control</title>
+  
+  <!-- Progressive Web App Meta -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <!-- Premium Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS & Lucide Icons & GSAP -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 16px;
-  }
-  .card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 18px;
-  }
-  .card h2 {
-    font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--muted); margin-bottom: 14px; font-weight: 600;
-  }
-  .big { font-size: 34px; font-weight: 700; }
-  .sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+          },
+          colors: {
+            mono: {
+              0: '#FFFFFF',
+              50: '#F4F4F5',
+              100: '#E4E4E7',
+              200: '#D4D4D8',
+              400: '#A1A1AA',
+              500: '#71717A',
+              600: '#52525B',
+              700: '#3F3F46',
+              800: '#27272A',
+              850: '#18181B',
+              900: '#121214',
+              950: '#09090B',
+              1000: '#000000',
+            }
+          }
+        }
+      }
+    }
+  </script>
 
-  .status-pill {
-    display: inline-block; padding: 6px 14px; border-radius: 20px;
-    font-size: 15px; font-weight: 600;
-  }
-  .st-present { background: rgba(63,185,80,0.15); color: var(--green); }
-  .st-absent  { background: rgba(139,148,158,0.15); color: var(--muted); }
-  .st-unknown { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  <style>
+    /* Ultra-sleek Dark Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #000000; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
 
-  .mode-tag {
-    display: inline-block; padding: 6px 14px; border-radius: 20px;
-    background: rgba(88,166,255,0.15); color: var(--accent);
-    font-size: 15px; font-weight: 600;
-  }
+    /* Pure Black & White Contrast Architecture with Dynamic Ambient Mesh */
+    body {
+      background-color: #000000;
+      color: #F4F4F5;
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
+        radial-gradient(circle at 100% 100%, rgba(255, 255, 255, 0.02) 0%, transparent 40%);
+      background-attachment: fixed;
+      overflow-x: hidden;
+    }
 
-  .cam-wrap { position: relative; }
-  .cam-wrap img {
-    width: 100%; border-radius: 8px; background: #000;
-    aspect-ratio: 4/3; object-fit: cover;
-  }
-  .cam-placeholder {
-    width: 100%; aspect-ratio: 4/3; border-radius: 8px;
-    background: var(--panel2); display: flex; align-items: center;
-    justify-content: center; color: var(--muted); font-size: 14px;
-  }
+    /* Interactive 3D Spotlight Card (Raycast/Vercel/Linear Style) */
+    .spotlight-card {
+      position: relative;
+      background: #09090b;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      overflow: hidden;
+      transform-style: preserve-3d;
+      transition: border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .spotlight-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(700px circle at var(--mouse-x, 0px) var(--mouse-y, 0px), rgba(255, 255, 255, 0.08), transparent 40%);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      z-index: 1;
+    }
+    .spotlight-card:hover {
+      border-color: rgba(255, 255, 255, 0.22);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 30px rgba(255, 255, 255, 0.03);
+    }
+    .spotlight-card:hover::before {
+      opacity: 1;
+    }
+    .card-content {
+      position: relative;
+      z-index: 2;
+    }
 
-  .stat-row { display: flex; justify-content: space-between;
-    padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
-  .stat-row:last-child { border-bottom: none; }
-  .stat-row .v { font-weight: 600; color: var(--accent); }
+    /* Monochromatic Stark Buttons */
+    .btn-white {
+      background: #FFFFFF;
+      color: #000000;
+      font-weight: 600;
+      border: 1px solid #FFFFFF;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.12);
+    }
+    .btn-white:hover {
+      background: #E4E4E7;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 24px rgba(255, 255, 255, 0.22);
+    }
+    .btn-white:active {
+      transform: translateY(0px) scale(0.98);
+    }
 
-  .btn {
-    background: var(--panel2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 8px;
-    padding: 10px 16px; font-size: 14px; cursor: pointer;
-    margin: 4px 4px 0 0; transition: all 0.15s;
-  }
-  .btn:hover { border-color: var(--accent); color: var(--accent); }
-  .btn.primary { background: var(--accent); color: #0d1117; border-color: var(--accent); }
-  .btn.primary:hover { filter: brightness(1.1); }
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.03);
+      color: #A1A1AA;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #FFFFFF;
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+    .btn-ghost:active {
+      transform: translateY(0px) scale(0.98);
+    }
 
-  .log {
-    max-height: 220px; overflow-y: auto; font-size: 12px;
-    font-family: "SF Mono", Monaco, monospace;
-  }
-  .log .entry { padding: 4px 0; border-bottom: 1px solid var(--border);
-    display: flex; gap: 8px; }
-  .log .t { color: var(--muted); flex-shrink: 0; }
-  .log .type { color: var(--purple); flex-shrink: 0; }
+    .btn-danger {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(244, 63, 94, 0.25);
+      color: #fb7185;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .btn-danger:hover {
+      background: rgba(244, 63, 94, 0.15);
+      border-color: rgba(244, 63, 94, 0.5);
+      color: #fda4af;
+      transform: translateY(-1px);
+      box-shadow: 0 0 20px rgba(244, 63, 94, 0.2);
+    }
+    .btn-danger:active {
+      transform: translateY(0px) scale(0.98);
+    }
 
-  .pairing-img { width: 100%; max-width: 240px; border-radius: 8px;
-    background: #fff; padding: 8px; display: none; }
-</style>
+    /* Floating Pill Glider */
+    #mode-glider {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      border-radius: 8px;
+      background: #FFFFFF;
+      z-index: 1;
+      box-shadow: 0 2px 12px rgba(255, 255, 255, 0.28);
+    }
+    .mode-tab.is-active,
+    .mode-tab.is-active *,
+    .mode-tab.is-active:hover,
+    .mode-tab.is-active:hover * {
+      color: #000000 !important;
+    }
+
+    /* Live Pulse Keyframes */
+    @keyframes subtle-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.08); opacity: 0.85; }
+    }
+    .pulse-live {
+      animation: subtle-pulse 2.4s infinite ease-in-out;
+    }
+
+    /* Subtle Cinematic Scanline in Viewport */
+    @keyframes scanline {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(600px); }
+    }
+    .hud-scanline {
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.3), transparent);
+      animation: scanline 4.5s linear infinite;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* Subtle Background Noise */
+    .noise-bg {
+      background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 0);
+      background-size: 24px 24px;
+    }
+  </style>
 </head>
-<body>
-  <header>
-    <h1>ORBIT <span>·</span> Ambient Awareness</h1>
-    <div class="conn" id="conn"><span class="dot"></span>Connecting…</div>
+<body class="selection:bg-white selection:text-black flex flex-col min-h-screen antialiased noise-bg relative">
+
+  <!-- Ambient Light Mesh in Background -->
+  <div class="fixed top-1/4 left-1/4 w-96 h-96 rounded-full bg-white/[0.015] filter blur-3xl pointer-events-none -z-10 animate-pulse"></div>
+  <div class="fixed bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-cyan-500/[0.012] filter blur-3xl pointer-events-none -z-10"></div>
+
+  <!-- Toast Notification Stack -->
+  <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm pointer-events-none"></div>
+
+  <!-- Master Top Navigation Bar -->
+  <header class="border-b border-white/10 bg-black/75 backdrop-blur-xl sticky top-0 z-40 transition-all">
+    <div class="max-w-7xl mx-auto px-4 sm:px-8 py-3 flex flex-wrap lg:flex-nowrap items-center justify-between gap-3.5">
+      
+      <!-- Brand & Biometric Engine Badge -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-white text-black flex items-center justify-center font-extrabold text-base shadow-[0_0_20px_rgba(255,255,255,0.2)] tracking-tighter shrink-0">
+          <svg class="w-5 h-5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/>
+            <line x1="3.6" y1="9" x2="20.4" y2="15"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-sm tracking-tight text-white font-sans">ORBIT</span>
+            <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full font-semibold tracking-wider bg-white/10 text-white/90 border border-white/15">
+              Core Engine
+            </span>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-zinc-400 mt-0.5 font-mono">
+            <span id="conn-dot" class="w-2 h-2 rounded-full bg-emerald-400 ring-4 ring-emerald-400/20"></span>
+            <span id="conn-text" class="text-[11px] text-zinc-300">Connected Local Daemon</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center: Fluid Animated Mode Switcher (Linear/Apple Style) with Keyboard Hints -->
+      <div class="order-3 lg:order-2 w-full lg:w-auto flex justify-center">
+        <div class="relative flex items-center p-1 rounded-xl bg-zinc-950/80 border border-white/10 shadow-inner overflow-x-auto max-w-full">
+          <div id="mode-glider" class="pointer-events-none"></div>
+          
+          <button onclick="switchMode('entertainment')" id="mode-entertainment" class="mode-tab relative z-10 px-3.5 sm:px-4 py-1.5 rounded-lg text-xs font-semibold text-zinc-400 hover:text-white transition-colors duration-200 flex items-center gap-1.5 shrink-0">
+            <span>🎬 Entertainment</span>
+            <span class="opacity-40 text-[9px] font-mono hidden sm:inline">1</span>
+          </button>
+          <button onclick="switchMode('study')" id="mode-study" class="mode-tab relative z-10 px-3.5 sm:px-4 py-1.5 rounded-lg text-xs font-semibold text-black transition-colors duration-200 flex items-center gap-1.5 shrink-0">
+            <span>📚 Study Mode</span>
+            <span class="opacity-40 text-[9px] font-mono hidden sm:inline">2</span>
+          </button>
+          <button onclick="switchMode('coding')" id="mode-coding" class="mode-tab relative z-10 px-3.5 sm:px-4 py-1.5 rounded-lg text-xs font-semibold text-zinc-400 hover:text-white transition-colors duration-200 flex items-center gap-1.5 shrink-0">
+            <span>💻 Coding</span>
+            <span class="opacity-40 text-[9px] font-mono hidden sm:inline">3</span>
+          </button>
+          <button onclick="switchMode('exam')" id="mode-exam" class="mode-tab relative z-10 px-3.5 sm:px-4 py-1.5 rounded-lg text-xs font-semibold text-zinc-400 hover:text-white transition-colors duration-200 flex items-center gap-1.5 shrink-0">
+            <span>🛡️ Exam</span>
+            <span class="opacity-40 text-[9px] font-mono hidden sm:inline">4</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Action Utilities with Hotkey Badges -->
+      <div class="order-2 lg:order-3 flex items-center gap-2">
+        <button onclick="openPairingDialog()" class="btn-ghost px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2">
+          <i data-lucide="smartphone" class="w-3.5 h-3.5 text-zinc-300"></i>
+          <span>Pair Device</span>
+        </button>
+
+        <button onclick="lockWorkstation()" class="btn-danger px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2">
+          <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+          <span>Lock Workstation</span>
+          <kbd class="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-mono border border-rose-500/30">L</kbd>
+        </button>
+      </div>
+
+    </div>
   </header>
 
-  <div class="grid">
-    <!-- Presence -->
-    <div class="card">
-      <h2>Presence</h2>
-      <div class="status-pill st-unknown" id="presence">Unknown</div>
-      <div class="sub" id="presence-sub">Waiting for data…</div>
+  <!-- Main Canvas Workspace -->
+  <main class="max-w-7xl mx-auto px-5 sm:px-8 py-8 flex-1 w-full space-y-6">
+
+    <!-- Row 1: High-Definition Vision Feed & SFace Biometric Telemetry -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Left 7 cols: Live Hardware Optical Stream -->
+      <div class="lg:col-span-7 spotlight-card p-6 flex flex-col justify-between anim-card">
+        <div class="card-content flex flex-col h-full justify-between">
+          
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div class="flex items-center gap-2.5">
+              <span id="cam-live-dot" class="w-2.5 h-2.5 rounded-full bg-white ring-4 ring-white/20 pulse-live"></span>
+              <span class="text-sm font-bold text-white tracking-tight">Optical Stream</span>
+              <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-white/10 hidden sm:inline">OpenCV YuNet</span>
+            </div>
+            
+            <!-- Quick Camera Actions -->
+            <div class="flex items-center gap-2 text-xs font-mono">
+              <button onclick="toggleEcoMode()" id="btn-eco" title="Toggle Low-Power Eco Mode (Key: E)" class="px-2.5 py-1 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 border border-white/10 text-zinc-300 hover:text-white flex items-center gap-1.5 transition-all">
+                <i data-lucide="leaf" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span id="eco-btn-label">Eco Mode</span>
+              </button>
+              <button onclick="takeSnapshot()" title="Capture High-Res Snapshot (Key: S)" class="px-2.5 py-1 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 border border-white/10 text-zinc-300 hover:text-white flex items-center gap-1.5 transition-all">
+                <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+                <span>Snapshot</span>
+              </button>
+              <button onclick="toggleCameraPause()" id="btn-pause-cam" title="Pause Camera / Privacy Shutter (Key: P)" class="px-2.5 py-1 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 border border-white/10 text-zinc-300 hover:text-white flex items-center gap-1.5 transition-all">
+                <i id="pause-cam-icon" data-lucide="video-off" class="w-3.5 h-3.5 text-amber-400"></i>
+                <span id="pause-cam-label">Pause Cam</span>
+              </button>
+              <div class="text-xs font-mono text-zinc-400 pl-1">
+                <span id="cam-fps" class="text-white font-bold text-sm">30</span> FPS
+              </div>
+            </div>
+          </div>
+
+          <!-- Video Stage with Corner Reticles and Scanning Light -->
+          <div class="relative w-full aspect-video rounded-xl overflow-hidden bg-black border border-white/10 flex items-center justify-center group shadow-2xl">
+            <!-- Animated HUD Scanline -->
+            <div id="hud-scanline" class="hud-scanline"></div>
+
+            <!-- Sleek Corner Accents -->
+            <div class="absolute top-3 left-3 w-3 h-3 border-t-2 border-l-2 border-white/40 pointer-events-none z-10 transition-colors group-hover:border-white"></div>
+            <div class="absolute top-3 right-3 w-3 h-3 border-t-2 border-r-2 border-white/40 pointer-events-none z-10 transition-colors group-hover:border-white"></div>
+            <div class="absolute bottom-3 left-3 w-3 h-3 border-b-2 border-l-2 border-white/40 pointer-events-none z-10 transition-colors group-hover:border-white"></div>
+            <div class="absolute bottom-3 right-3 w-3 h-3 border-b-2 border-r-2 border-white/40 pointer-events-none z-10 transition-colors group-hover:border-white"></div>
+
+            <img id="cam-img" class="w-full h-full object-cover hidden transition-opacity duration-300" alt="Hardware Camera Feed">
+
+            <!-- Privacy Shutter Overlay (when paused) -->
+            <div id="cam-paused-overlay" class="absolute inset-0 bg-zinc-950/95 backdrop-blur-md flex flex-col items-center justify-center gap-3 z-30 hidden transition-all duration-300">
+              <div class="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shadow-[0_0_25px_rgba(245,158,11,0.2)]">
+                <i data-lucide="shield-alert" class="w-7 h-7 text-amber-400"></i>
+              </div>
+              <div class="text-center space-y-1">
+                <div class="text-sm font-bold text-white tracking-wider">CAMERA PAUSED</div>
+                <div class="text-xs text-zinc-400 font-mono">Hardware sensor released · 100% Privacy Active</div>
+              </div>
+              <button onclick="toggleCameraPause()" class="mt-2 btn-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
+                <i data-lucide="video" class="w-3.5 h-3.5 text-black"></i>
+                <span>Resume Camera</span>
+              </button>
+            </div>
+
+            <!-- Placeholder State -->
+            <div id="cam-placeholder" class="flex flex-col items-center justify-center text-zinc-500 gap-3">
+              <div class="w-12 h-12 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center">
+                <i data-lucide="video" class="w-5 h-5 text-zinc-400"></i>
+              </div>
+              <span class="text-xs font-mono tracking-wide text-zinc-400">Synchronizing hardware camera…</span>
+            </div>
+
+            <!-- Optical Sensor Badge -->
+            <div class="absolute bottom-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/80 backdrop-blur-md border border-white/15 text-[11px] font-mono text-zinc-200">
+              <span id="stream-status-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span id="stream-label" class="font-medium">DirectShow Active (30 FPS)</span>
+            </div>
+          </div>
+
+          <!-- Sub-action Footer -->
+          <div class="mt-4 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-zinc-400">
+            <span class="font-mono text-[11px] text-zinc-400">Hardware-accelerated on-chip inference</span>
+            <button onclick="enrollFaceFromCam()" id="btn-re-enroll" class="btn-ghost px-3 py-1.5 rounded-lg text-xs font-semibold text-white flex items-center gap-2">
+              <i data-lucide="scan-face" class="w-3.5 h-3.5"></i>
+              <span>Re-enroll Biometrics</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Right 5 cols: Real Deep Learning Biometrics & System Presence -->
+      <div class="lg:col-span-5 flex flex-col gap-6">
+
+        <!-- Card: Biometric Identity Verification -->
+        <div class="spotlight-card p-6 space-y-5 anim-card">
+          <div class="card-content space-y-4">
+            
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <i data-lucide="fingerprint" class="w-4 h-4 text-white"></i>
+                <span class="text-sm font-bold text-white tracking-tight">Biometric SFace Vector</span>
+              </div>
+              <span id="model-storage-badge" class="text-[10px] px-2.5 py-0.5 rounded-full font-mono font-semibold bg-white/10 text-white border border-white/15">
+                SQLite Vector
+              </span>
+            </div>
+
+            <!-- Match Status Hero Box -->
+            <div id="match-status-box" class="p-4 rounded-xl bg-zinc-950 border border-white/10 flex items-center justify-between transition-all duration-300">
+              <div class="space-y-0.5">
+                <div class="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Subject Identification</div>
+                <div id="verified-name" class="text-base font-bold text-white tracking-tight">Enrolled Owner</div>
+                <div id="verified-sub" class="text-xs text-zinc-400">Deep metric embedding confirmed</div>
+              </div>
+              <div id="verified-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+                Verified
+              </div>
+            </div>
+
+            <!-- Precision Metric Progress Bar -->
+            <div class="space-y-2 pt-1">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-zinc-400 font-medium">Cosine Similarity Metric</span>
+                <span id="confidence-val" class="font-mono text-white font-bold text-sm">78%</span>
+              </div>
+              <div class="w-full bg-zinc-900 h-2 rounded-full overflow-hidden p-0.5 border border-white/10">
+                <div id="confidence-bar" class="h-full bg-white rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(255,255,255,0.4)]" style="width: 78%;"></div>
+              </div>
+            </div>
+
+            <!-- Real-time Oscilloscope Waveform Canvas -->
+            <div class="pt-1">
+              <div class="flex items-center justify-between text-[11px] font-mono text-zinc-500 mb-1.5">
+                <span>Real-Time Biometric Pulse</span>
+                <span id="wave-state" class="text-white font-medium">32 Hz Active</span>
+              </div>
+              <canvas id="biometric-canvas" class="w-full h-11 rounded-lg bg-black border border-white/10 block shadow-inner"></canvas>
+            </div>
+
+            <div class="text-[11px] text-zinc-400 leading-relaxed font-mono bg-zinc-950/60 p-3 rounded-lg border border-white/5">
+              128-dimensional biometric embeddings are matched on-chip. Raw biometric vectors never leave local storage.
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Card: Workstation Presence & Security Rules -->
+        <div class="spotlight-card p-6 space-y-4 anim-card">
+          <div class="card-content space-y-3.5">
+            
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <i data-lucide="shield-alert" class="w-4 h-4 text-white"></i>
+                <span class="text-sm font-bold text-white tracking-tight">Presence Engine</span>
+              </div>
+              <span id="presence-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-white/10 text-white border border-white/20 capitalize font-mono">
+                Present
+              </span>
+            </div>
+
+            <div class="text-xs space-y-2.5 font-mono pt-1">
+              <div class="flex justify-between items-center text-zinc-400 border-b border-white/5 pb-2">
+                <span>Autonomous lock timer</span>
+                <span class="text-white font-semibold">120s absence debounce</span>
+              </div>
+              <div class="flex justify-between items-center text-zinc-400 border-b border-white/5 pb-2">
+                <span>Activity keeper</span>
+                <span class="text-emerald-400 font-semibold flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Active
+                </span>
+              </div>
+              <div class="flex justify-between items-center text-zinc-400 border-b border-white/5 pb-2">
+                <span>Companion satellite</span>
+                <span id="phone-status" class="text-zinc-500 font-medium">Standby / Unlinked</span>
+              </div>
+              <div class="flex justify-between items-center text-zinc-400 pt-0.5">
+                <span>Stay-Awake Lock Override</span>
+                <button onclick="toggleStayAwake()" id="btn-stay-awake" title="Prevent PC from auto-locking (Key: A)" class="px-2.5 py-1 rounded-lg bg-zinc-900 border border-white/10 hover:border-white/30 text-[11px] font-semibold text-zinc-400 hover:text-white flex items-center gap-1.5 transition-all">
+                  <i id="stay-awake-icon" data-lucide="coffee" class="w-3 h-3 text-zinc-400"></i>
+                  <span id="stay-awake-label">Disabled</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
     </div>
 
-    <!-- Mode -->
-    <div class="card">
-      <h2>Current Mode</h2>
-      <div class="mode-tag" id="mode">work</div>
-      <div class="sub" id="mode-sub">—</div>
+    <!-- Row 2: Four Precision Metric Cards with Number Rolling -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      
+      <!-- Metric 1: Focus Session -->
+      <div class="spotlight-card p-5 flex flex-col justify-between anim-card">
+        <div class="card-content flex flex-col h-full justify-between space-y-4">
+          <div class="flex items-center justify-between text-xs text-zinc-400 font-mono">
+            <span class="uppercase tracking-wider">Deep Focus</span>
+            <i data-lucide="timer" class="w-4 h-4 text-zinc-400"></i>
+          </div>
+          <div class="py-1">
+            <div id="focus-time" class="text-3xl font-extrabold text-white font-mono tracking-tight">0 min</div>
+            <div id="focus-status" class="text-xs text-zinc-400 mt-1 font-mono">Session idle</div>
+          </div>
+          <div class="flex gap-2 pt-2">
+            <button onclick="startFocus()" id="btn-focus-start" class="btn-white flex-1 py-1.5 rounded-lg text-xs flex items-center justify-center gap-1.5">
+              <span>Start</span>
+              <kbd class="text-[9px] font-mono opacity-50 bg-black/10 px-1 py-0.5 rounded">F</kbd>
+            </button>
+            <button onclick="endFocus()" id="btn-focus-end" class="btn-ghost flex-1 py-1.5 rounded-lg text-xs">
+              End
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metric 2: Today's Deep Work -->
+      <div class="spotlight-card p-5 flex flex-col justify-between anim-card">
+        <div class="card-content flex flex-col h-full justify-between space-y-4">
+          <div class="flex items-center justify-between text-xs text-zinc-400 font-mono">
+            <span class="uppercase tracking-wider">Productivity Flow</span>
+            <i data-lucide="target" class="w-4 h-4 text-zinc-400"></i>
+          </div>
+          <div class="py-1">
+            <div id="stat-focus" class="text-3xl font-extrabold text-white font-mono tracking-tight">0 min</div>
+            <div class="text-xs text-zinc-400 mt-1 font-mono">Objective: 120 min</div>
+          </div>
+          <div class="text-[11px] text-zinc-500 font-mono border-t border-white/5 pt-2">
+            Continuous seated focus
+          </div>
+        </div>
+      </div>
+
+      <!-- Metric 3: Posture & Ergonomics -->
+      <div class="spotlight-card p-5 flex flex-col justify-between anim-card">
+        <div class="card-content flex flex-col h-full justify-between space-y-4">
+          <div class="flex items-center justify-between text-xs text-zinc-400 font-mono">
+            <span class="uppercase tracking-wider">Ergonomics</span>
+            <i data-lucide="activity" class="w-4 h-4 text-zinc-400"></i>
+          </div>
+          <div class="py-1">
+            <div id="stat-posture" class="text-3xl font-extrabold text-white font-mono tracking-tight">0</div>
+            <div class="text-xs text-zinc-400 mt-1 font-mono">Slouch detections</div>
+          </div>
+          <div class="text-[11px] text-zinc-400 font-mono border-t border-white/5 pt-2 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-white"></span> Spinal alignment nominal
+          </div>
+        </div>
+      </div>
+
+      <!-- Metric 4: Security Events -->
+      <div class="spotlight-card p-5 flex flex-col justify-between anim-card">
+        <div class="card-content flex flex-col h-full justify-between space-y-4">
+          <div class="flex items-center justify-between text-xs text-zinc-400 font-mono">
+            <span class="uppercase tracking-wider">Perimeter Defense</span>
+            <i data-lucide="shield-check" class="w-4 h-4 text-zinc-400"></i>
+          </div>
+          <div class="py-1">
+            <div id="stat-intruder" class="text-3xl font-extrabold text-white font-mono tracking-tight">0</div>
+            <div class="text-xs text-zinc-400 mt-1 font-mono">Secondary observer alerts</div>
+          </div>
+          <div class="text-[11px] text-zinc-500 font-mono border-t border-white/5 pt-2">
+            Zero unauthorized access
+          </div>
+        </div>
+      </div>
+
     </div>
 
-    <!-- Focus -->
-    <div class="card">
-      <h2>Focus Session</h2>
-      <div class="big" id="focus">0 min</div>
-      <div class="sub" id="focus-sub">Not active</div>
-      <div style="margin-top:14px">
-        <button class="btn primary" onclick="sendCmd('focus_start')">Start</button>
-        <button class="btn" onclick="sendCmd('focus_end')">End</button>
+    <!-- Row 3: Universal Clipboard -->
+    <div class="max-w-xl mx-auto w-full mb-6">
+      
+      <!-- Card: Universal Clipboard -->
+      <div class="spotlight-card p-6 flex flex-col justify-between anim-card">
+        <div class="card-content flex flex-col h-full justify-between space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <i data-lucide="clipboard" class="w-4 h-4 text-white"></i>
+              <span class="text-sm font-bold text-white tracking-tight">Universal Clipboard</span>
+            </div>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Live Sync
+            </span>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+              <span>Shared Buffer (Auto-Synced)</span>
+              <span id="clip-char-count">0 chars</span>
+            </div>
+            <textarea id="clip-textarea" rows="3" class="w-full bg-zinc-950/80 border border-white/10 rounded-xl p-3 text-xs font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all resize-none" placeholder="Type or paste text to send to phone..."></textarea>
+          </div>
+
+          <div id="clip-send-confirmation" class="hidden p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-center font-mono text-xs text-emerald-300 font-semibold transition-all"></div>
+
+          <div>
+            <button onclick="sendClipboardToMobile()" class="w-full py-2.5 rounded-xl bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-all flex items-center justify-center gap-2 shadow-sm">
+              <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              <span>Send to Mobile</span>
+            </button>
+          </div>
+
+          <div class="text-[11px] text-zinc-500 font-mono border-t border-white/5 pt-2 flex items-center justify-between">
+            <span>Direct Local LAN Bridge</span>
+            <span class="text-emerald-400">Windows & Android</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Row 4: AirDrop / QuickShare Direct File Bridge (Send Files to Phone) -->
+    <div class="max-w-xl mx-auto w-full">
+      <div class="spotlight-card p-6 flex flex-col justify-between anim-card">
+        <div class="card-content flex flex-col h-full justify-between space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <i data-lucide="share-2" class="w-4 h-4 text-emerald-400"></i>
+              <span class="text-sm font-bold text-white tracking-tight">Send Files to Phone</span>
+            </div>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              Direct P2P
+            </span>
+          </div>
+
+          <!-- Dropzone and Actions: Direct Push to Phone -->
+          <div>
+            <div onclick="document.getElementById('file-upload-mobile').click()" class="w-full border border-dashed border-emerald-500/40 hover:border-emerald-500/80 rounded-xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer bg-emerald-950/20 hover:bg-emerald-950/40 transition-all text-center group">
+              <div class="w-12 h-12 rounded-full bg-emerald-900/50 border border-emerald-500/40 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <i data-lucide="smartphone" class="w-5 h-5 text-emerald-400"></i>
+              </div>
+              <div class="text-sm font-bold text-white">Send Files to Phone</div>
+              <div class="text-xs font-mono text-zinc-400">Click or drag files here — saves automatically in Phone's Downloads folder</div>
+              <input id="file-upload-mobile" type="file" multiple class="hidden" onchange="handleFileUpload(event, 'mobile')">
+            </div>
+          </div>
+
+          <!-- Inline Confirmation Message -->
+          <div id="file-upload-confirmation" class="hidden p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-center font-mono text-xs text-emerald-300 font-semibold transition-all"></div>
+
+          <!-- Progress -->
+          <div id="file-upload-progress" class="hidden space-y-1">
+            <div class="flex justify-between text-[11px] font-mono text-zinc-400">
+              <span id="upload-filename">Uploading...</span>
+              <span id="upload-pct">0%</span>
+            </div>
+            <div class="w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden border border-white/10">
+              <div id="upload-bar" class="h-full bg-white transition-all duration-150" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div class="text-[11px] text-zinc-500 font-mono border-t border-white/5 pt-2 flex items-center justify-between">
+            <span>Direct P2P LAN Transfer</span>
+            <span class="text-zinc-400">Unlimited Size</span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Camera -->
-    <div class="card">
-      <h2>Camera Feed</h2>
-      <div class="cam-wrap">
-        <div class="cam-placeholder" id="cam-placeholder">No feed</div>
-        <img id="cam-img" style="display:none" alt="camera">
+  </main>
+
+
+
+  <!-- Modal: Phone Companion Satellite Link -->
+  <div id="pairing-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl opacity-0 pointer-events-none transition-opacity duration-300">
+    <div id="pairing-card" class="spotlight-card max-w-md w-full p-7 space-y-5 border-white/20 shadow-2xl relative">
+      <div class="card-content space-y-5">
+        
+        <button onclick="closePairingDialog()" class="absolute top-0 right-0 text-zinc-400 hover:text-white p-2">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="w-2 h-2 rounded-full bg-white"></span>
+            <h3 class="text-base font-bold text-white tracking-tight">Pair Companion Satellite</h3>
+          </div>
+          <p class="text-xs text-zinc-400 leading-relaxed font-mono">
+            Direct AES-256 local link for BLE proximity detection, shake-to-lock, and instant push approval.
+          </p>
+        </div>
+
+        <!-- QR Display Surface -->
+        <div class="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-inner">
+          <img id="qr-image" class="w-52 h-52 object-contain" alt="Companion Pairing QR">
+          <div id="qr-loading" class="text-xs font-mono text-black py-16 flex items-center gap-2">
+            <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-black"></i>
+            Generating encrypted handshake…
+          </div>
+        </div>
+
+        <!-- Local Network Topology Info -->
+        <div class="p-3.5 rounded-xl bg-black border border-white/10 space-y-2 text-xs font-mono">
+          <div class="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Local Node Socket</div>
+          <div class="flex justify-between text-zinc-400">
+            <span>Direct LAN Host:</span>
+            <span id="manual-ip" class="text-white font-bold">127.0.0.1</span>
+          </div>
+          <div class="flex justify-between text-zinc-400">
+            <span>WebSocket Port:</span>
+            <span id="manual-port" class="text-white font-bold">8765</span>
+          </div>
+        </div>
+
+        <div class="text-[11px] text-zinc-400 leading-relaxed font-mono">
+          <strong>Instructions:</strong> Open the Orbit companion app on your phone, tap <strong>Scan QR</strong>, and aim at this screen while on the same network or laptop hotspot.
+        </div>
+
+        <button onclick="closePairingDialog()" class="btn-white w-full py-2.5 rounded-xl text-xs font-bold">
+          Dismiss
+        </button>
+
       </div>
-    </div>
-
-    <!-- Stats -->
-    <div class="card">
-      <h2>Today</h2>
-      <div class="stat-row"><span>Focus</span><span class="v" id="s-focus">0 min</span></div>
-      <div class="stat-row"><span>Screen time</span><span class="v" id="s-screen">0 min</span></div>
-      <div class="stat-row"><span>Breaks</span><span class="v" id="s-breaks">0</span></div>
-      <div class="stat-row"><span>Posture alerts</span><span class="v" id="s-posture">0</span></div>
-      <div class="stat-row"><span>Intruder alerts</span><span class="v" id="s-intruder">0</span></div>
-    </div>
-
-    <!-- Controls -->
-    <div class="card">
-      <h2>Quick Actions</h2>
-      <button class="btn" onclick="switchMode('work')">Work</button>
-      <button class="btn" onclick="switchMode('meeting')">Meeting</button>
-      <button class="btn" onclick="switchMode('away')">Away</button>
-      <button class="btn" onclick="switchMode('off')">Off</button>
-      <hr style="border-color:var(--border); margin:14px 0">
-      <button class="btn" onclick="showPairing()">📱 Pair Phone</button>
-      <button class="btn" id="btn-enroll" onclick="enrollFace()">👤 Enroll Face</button>
-      <img class="pairing-img" id="pairing-img" alt="QR">
-    </div>
-
-    <!-- Event Log -->
-    <div class="card" style="grid-column: 1 / -1">
-      <h2>Event Log</h2>
-      <div class="log" id="log"></div>
     </div>
   </div>
 
-<script>
-let ws = null;
-let reconnectDelay = 1000;
+  <!-- Interactive JavaScript Engine with GSAP Orchestration -->
+  <script>
+    let ws = null;
+    let reconnectDelay = 1000;
+    let activeMode = 'study';
+    let currentConfidence = 0.78;
+    let isOwnerVerified = false;
 
-function connect() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}/ws`);
+    // 1. Mouse Spotlight Tracking & 3D Perspective Tilt (Tactile Hardware Feel)
+    document.querySelectorAll('.spotlight-card').forEach((card) => {
+      card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        card.style.setProperty('--mouse-x', `${x}px`);
+        card.style.setProperty('--mouse-y', `${y}px`);
 
-  ws.onopen = () => {
-    document.getElementById('conn').classList.add('on');
-    document.getElementById('conn').innerHTML = '<span class="dot"></span>Live';
-    reconnectDelay = 1000;
-  };
-  ws.onclose = () => {
-    document.getElementById('conn').classList.remove('on');
-    document.getElementById('conn').innerHTML = '<span class="dot"></span>Disconnected';
-    setTimeout(connect, reconnectDelay);
-    reconnectDelay = Math.min(reconnectDelay * 1.5, 10000);
-  };
-  ws.onmessage = (e) => {
-    try { handleEvent(JSON.parse(e.data)); } catch (err) {}
-  };
-}
+        // Subtle 3D Tilt
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const rotX = ((y - centerY) / centerY) * -3.5;
+        const rotY = ((x - centerX) / centerX) * 3.5;
+        gsap.to(card, {
+          rotateX: rotX,
+          rotateY: rotY,
+          transformPerspective: 900,
+          duration: 0.2,
+          ease: "power1.out"
+        });
+      });
 
-function handleEvent(ev) {
-  addLog(ev.type, ev.payload);
-  switch (ev.type) {
-    case 'PRESENCE_CHANGED':
-      setPresence(ev.payload.state);
-      break;
-    case 'MODE_CHANGED':
-      setMode(ev.payload.mode);
-      break;
-    case 'FOCUS_SESSION_START':
-      setFocus(true);
-      break;
-    case 'FOCUS_SESSION_END':
-      setFocus(false);
-      break;
-    case 'DASHBOARD_UPDATE':
-      if (ev.payload.frame_b64) {
-        const img = document.getElementById('cam-img');
-        const ph = document.getElementById('cam-placeholder');
-        img.src = 'data:image/jpeg;base64,' + ev.payload.frame_b64;
-        img.style.display = 'block';
-        ph.style.display = 'none';
-      }
-      break;
-  }
-}
+      card.addEventListener('mouseleave', () => {
+        gsap.to(card, {
+          rotateX: 0,
+          rotateY: 0,
+          duration: 0.4,
+          ease: "power2.out"
+        });
+      });
+    });
 
-function setPresence(state) {
-  const el = document.getElementById('presence');
-  const s = (state || 'unknown').toLowerCase();
-  el.textContent = s.replace('_', ' ');
-  el.className = 'status-pill';
-  if (s.startsWith('present')) el.classList.add('st-present');
-  else if (s === 'absent') el.classList.add('st-absent');
-  else el.classList.add('st-unknown');
-  document.getElementById('presence-sub').textContent =
-    `Updated ${new Date().toLocaleTimeString()}`;
-}
-
-function setMode(mode) {
-  document.getElementById('mode').textContent = mode;
-  document.getElementById('mode-sub').textContent =
-    `Switched ${new Date().toLocaleTimeString()}`;
-}
-
-function setFocus(active) {
-  document.getElementById('focus-sub').textContent = active ? 'Active now' : 'Not active';
-}
-
-function addLog(type, payload) {
-  const log = document.getElementById('log');
-  const t = new Date().toLocaleTimeString();
-  const div = document.createElement('div');
-  div.className = 'entry';
-  div.innerHTML = `<span class="t">${t}</span><span class="type">${type}</span>` +
-    `<span>${JSON.stringify(payload).slice(0, 120)}</span>`;
-  log.prepend(div);
-  // Cap log length
-  while (log.children.length > 100) log.removeChild(log.lastChild);
-}
-
-function sendCmd(action) {
-  if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({ action }));
-  }
-}
-function switchMode(mode) {
-  if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({ action: 'switch_mode', mode }));
-  }
-}
-
-async function showPairing() {
-  const res = await fetch('/api/pairing_qr');
-  const data = await res.json();
-  const img = document.getElementById('pairing-img');
-  if (data.qr) {
-    img.src = 'data:image/png;base64,' + data.qr;
-    img.style.display = 'block';
-  }
-}
-
-async function enrollFace() {
-  const btn = document.getElementById('btn-enroll');
-  const prevText = btn.textContent;
-  btn.textContent = 'Enrolling...';
-  btn.disabled = true;
-  try {
-    const res = await fetch('/api/enroll', { method: 'POST' });
-    const data = await res.json();
-    if (data.ok) {
-      alert('Face enrolled successfully!');
-    } else {
-      alert('Face enrollment failed: ' + (data.error || 'No face detected in camera.'));
+    // 2. Icon Init
+    function refreshIcons() {
+      if (window.lucide) lucide.createIcons();
     }
-  } catch (err) {
-    alert('Enrollment error: ' + err.message);
-  } finally {
-    btn.textContent = prevText;
-    btn.disabled = false;
-  }
-}
 
-// Poll stats every 30s
-async function pollStats() {
-  try {
-    const res = await fetch('/api/stats');
-    const s = await res.json();
-    document.getElementById('s-focus').textContent = (s.focus_minutes||0) + ' min';
-    document.getElementById('s-screen').textContent = (s.screen_time_min||0) + ' min';
-    document.getElementById('s-breaks').textContent = s.breaks_taken||0;
-    document.getElementById('s-posture').textContent = s.posture_alerts||0;
-    document.getElementById('s-intruder').textContent = s.intruder_alerts||0;
-  } catch (e) {}
-}
+    // 3. Fluid Animated Segmented Glider
+    function updateGlider(mode) {
+      const target = document.getElementById(`mode-${mode}`);
+      const glider = document.getElementById('mode-glider');
+      if (target && glider) {
+        gsap.to(glider, {
+          x: target.offsetLeft,
+          width: target.offsetWidth,
+          duration: 0.35,
+          ease: "power3.out"
+        });
 
-connect();
-pollStats();
-setInterval(pollStats, 30000);
-</script>
+        document.querySelectorAll('.mode-tab').forEach(t => {
+          t.classList.remove('is-active', 'text-black');
+          t.classList.add('text-zinc-400');
+          t.style.color = '';
+        });
+        target.classList.add('is-active', 'text-black');
+        target.classList.remove('text-zinc-400');
+        target.style.color = '#000000';
+      }
+    }
+
+    // 4. WebSocket Engine
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+      ws.onopen = () => {
+        document.getElementById('conn-dot').className = 'w-2 h-2 rounded-full bg-emerald-400 ring-4 ring-emerald-400/20';
+        document.getElementById('conn-text').textContent = 'Connected Local Daemon';
+        ws.send(JSON.stringify({ action: 'set_visibility', visible: !document.hidden }));
+        fetchStatus();
+      };
+
+      ws.onclose = () => {
+        document.getElementById('conn-dot').className = 'w-2 h-2 rounded-full bg-rose-500 ring-4 ring-rose-500/20';
+        document.getElementById('conn-text').textContent = 'Daemon Disconnected — Retrying…';
+        setTimeout(connect, reconnectDelay);
+        reconnectDelay = Math.min(reconnectDelay * 1.5, 8000);
+      };
+
+      ws.onmessage = (e) => {
+        try {
+          handleEvent(JSON.parse(e.data));
+        } catch (err) {}
+      };
+    }
+
+    // 5. Reactive Event Dispatcher
+    function handleEvent(ev) {
+      switch (ev.type) {
+        case 'PRESENCE_CHANGED':
+          updatePresence(ev.payload.state);
+          break;
+        case 'MODE_CHANGED':
+          updateMode(ev.payload.mode);
+          break;
+        case 'FOCUS_SESSION_START':
+          updateFocus(true);
+          break;
+        case 'FOCUS_SESSION_END':
+          updateFocus(false);
+          break;
+        case 'DASHBOARD_UPDATE':
+          if (ev.payload.frame_b64) {
+            updateCamera(ev.payload.frame_b64, ev.payload.fps);
+          }
+          if (ev.payload.eco_mode !== undefined) {
+            updateEcoBadge(ev.payload.eco_mode);
+          }
+          if (ev.payload.owner_verified !== undefined) {
+            updateVerification(ev.payload.owner_verified, ev.payload.confidence, ev.payload.faces);
+          }
+          break;
+        case 'PHONE_CONNECTED':
+          document.getElementById('phone-status').textContent = 'Connected (Direct Link)';
+          document.getElementById('phone-status').className = 'text-white font-semibold font-mono';
+          showToast('Companion Linked', 'Android satellite connected securely', 'info');
+          break;
+        case 'PHONE_DISCONNECTED':
+          document.getElementById('phone-status').textContent = 'Standby / Unlinked';
+          document.getElementById('phone-status').className = 'text-zinc-500 font-medium font-mono';
+          break;
+        case 'POSTURE_ALERT':
+          showToast('Posture Nudge', 'Spine angle misaligned. Please sit upright.', 'warning');
+          break;
+        case 'CAMERA_PAUSE_CHANGED':
+          updateCameraPauseState(ev.payload.paused);
+          break;
+        case 'ECO_MODE_CHANGED':
+          updateEcoState(ev.payload.eco);
+          break;
+        case 'STAY_AWAKE_CHANGED':
+          updateStayAwakeState(ev.payload.stay_awake);
+          break;
+        case 'CLIPBOARD_UPDATED':
+          if (ev.payload && ev.payload.text !== undefined) {
+            updateClipboardPreview(ev.payload.text);
+            showToast('Clipboard Synced', 'Instant peer sync', 'info');
+          }
+          break;
+
+        case 'FILE_TRANSFERRED':
+          if (ev.payload) {
+            showToast('File Transferred', `${ev.payload.filename} saved in Laptop Downloads`, 'success');
+          }
+          break;
+      }
+    }
+
+    // 6. Presence Status Update
+    function updatePresence(state) {
+      const s = (state || 'unknown').toLowerCase();
+      const el = document.getElementById('presence-badge');
+      el.textContent = s.replace('_', ' ');
+      if (s.startsWith('present')) {
+        el.className = 'px-3 py-1 rounded-full text-xs font-bold bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)] capitalize font-mono';
+      } else if (s === 'absent') {
+        el.className = 'px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-400 border border-white/10 capitalize font-mono';
+      } else {
+        el.className = 'px-3 py-1 rounded-full text-xs font-bold bg-white/10 text-white border border-white/20 capitalize font-mono';
+      }
+    }
+
+    // 7. Mode Transition
+    function updateMode(mode) {
+      activeMode = (mode || 'work').toLowerCase();
+      updateGlider(activeMode);
+    }
+
+    function updateFocus(active) {
+      document.getElementById('focus-status').textContent = active ? 'Session active now' : 'Session idle';
+      document.getElementById('btn-focus-start').disabled = active;
+      document.getElementById('btn-focus-end').disabled = !active;
+    }
+
+    function updateCamera(b64, fps) {
+      if (isCameraPaused) return;
+      const img = document.getElementById('cam-img');
+      const ph = document.getElementById('cam-placeholder');
+      img.src = 'data:image/jpeg;base64,' + b64;
+      img.style.display = 'block';
+      img.classList.remove('hidden');
+      ph.style.display = 'none';
+      ph.classList.add('hidden');
+      if (fps) {
+        document.getElementById('cam-fps').textContent = fps;
+      }
+      if (!isForcedEco) {
+        updateEcoBadge(false);
+      }
+    }
+
+    function updateEcoBadge(isEco) {
+      const label = document.getElementById('stream-label');
+      const fpsEl = document.getElementById('cam-fps');
+      if (isEco) {
+        label.textContent = 'Eco Mode (15s Snapshot)';
+        fpsEl.textContent = 'Eco';
+      } else {
+        label.textContent = 'DirectShow Active (30 FPS)';
+      }
+    }
+
+    // 8. SFace Biometric Telemetry Display
+    function updateVerification(isOwner, confidence, faceCount) {
+      const nameEl = document.getElementById('verified-name');
+      const subEl = document.getElementById('verified-sub');
+      const badgeEl = document.getElementById('verified-badge');
+      const confVal = document.getElementById('confidence-val');
+      const confBar = document.getElementById('confidence-bar');
+      const waveState = document.getElementById('wave-state');
+
+      currentConfidence = confidence || 0;
+      isOwnerVerified = isOwner;
+
+      const pct = Math.round(currentConfidence * 100);
+      confVal.textContent = pct + '%';
+      gsap.to(confBar, { width: `${Math.max(5, pct)}%`, duration: 0.4, ease: "power2.out" });
+
+      if (!faceCount || faceCount === 0) {
+        nameEl.textContent = 'Zero Observers Detected';
+        subEl.textContent = 'Optical field is clear';
+        badgeEl.textContent = 'Clear';
+        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-400 border border-white/10';
+        if (waveState) waveState.textContent = 'Idle (0 Hz)';
+      } else if (isOwner) {
+        nameEl.textContent = 'Enrolled Owner (Primary)';
+        subEl.textContent = `Deep vector verified (${pct}% cosine similarity)`;
+        badgeEl.textContent = 'Verified';
+        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.25)]';
+        if (waveState) waveState.textContent = '32 Hz Rhythmic';
+      } else {
+        nameEl.textContent = 'Unenrolled Individual';
+        subEl.textContent = 'Face does not match registered owner profile';
+        badgeEl.textContent = 'Unverified';
+        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-zinc-900 text-rose-400 border border-rose-500/40';
+        if (waveState) waveState.textContent = '12 Hz Irregular';
+      }
+    }
+
+    // 9. Command Actions with Dual-Path Execution (REST + WS)
+    async function sendCmd(action, extra = {}) {
+      const payload = { action, ...extra };
+      if (ws && ws.readyState === 1) {
+        try { ws.send(JSON.stringify(payload)); } catch(e) {}
+      }
+      try {
+        const res = await fetch('/api/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        return data.ok === true;
+      } catch (err) {
+        console.error('Command failed:', err);
+        return false;
+      }
+    }
+
+    async function switchMode(mode) {
+      updateMode(mode);
+      const ok = await sendCmd('switch_mode', { mode });
+      if (ok) {
+        showToast('Mode Switched', `Active workspace profile changed to ${mode.toUpperCase()}`, 'info');
+      } else {
+        showToast('Mode Error', `Failed to switch to ${mode}`, 'warning');
+      }
+    }
+
+    async function lockWorkstation() {
+      showToast('Locking System', 'Sending direct lock command to Windows user32 API...', 'warning');
+      const ok = await sendCmd('lock');
+      if (!ok) {
+        showToast('Lock Error', 'Failed to communicate with lock endpoint', 'warning');
+      }
+    }
+
+    async function startFocus() {
+      const ok = await sendCmd('focus_start');
+      if (ok) {
+        updateFocus(true);
+        showToast('Focus Session Started', 'Workstation focus session initiated', 'info');
+      }
+    }
+
+    async function endFocus() {
+      const ok = await sendCmd('focus_end');
+      if (ok) {
+        updateFocus(false);
+        showToast('Focus Session Ended', 'Session recorded to database', 'info');
+      }
+    }
+
+    // 10. Pairing Dialog with GSAP Smooth Animations
+    async function openPairingDialog() {
+      const modal = document.getElementById('pairing-modal');
+      const card = document.getElementById('pairing-card');
+      const img = document.getElementById('qr-image');
+      const loading = document.getElementById('qr-loading');
+
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      gsap.fromTo(card, { scale: 0.94, opacity: 0, y: 15 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.5)" });
+
+      img.classList.add('hidden');
+      loading.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/pairing_qr');
+        const data = await res.json();
+        if (data.qr) {
+          img.src = 'data:image/png;base64,' + data.qr;
+          img.classList.remove('hidden');
+          loading.classList.add('hidden');
+        }
+        if (data.ip) document.getElementById('manual-ip').textContent = data.ip;
+        if (data.port) document.getElementById('manual-port').textContent = data.port;
+      } catch (e) {
+        loading.textContent = 'Pairing service offline';
+      }
+    }
+
+    function closePairingDialog() {
+      const modal = document.getElementById('pairing-modal');
+      const card = document.getElementById('pairing-card');
+      gsap.to(card, { scale: 0.95, opacity: 0, duration: 0.2, onComplete: () => {
+        modal.classList.add('opacity-0', 'pointer-events-none');
+      }});
+    }
+
+    // 11. Re-enroll Face with Phone Fingerprint Authentication
+    async function enrollFaceFromCam() {
+      const btn = document.getElementById('btn-re-enroll');
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> <span>Scan Fingerprint on Phone...</span>';
+      refreshIcons();
+      try {
+        const reqRes = await fetch('/api/enroll/request', { method: 'POST' });
+        const reqData = await reqRes.json();
+        if (!reqData.ok || !reqData.token) {
+          showToast('Request Failed', reqData.error || 'Failed to dispatch phone prompt', 'warning');
+          return;
+        }
+
+        const token = reqData.token;
+        showToast('Confirm on Phone', 'Open Orbit app and scan your fingerprint to authorize re-enrollment.', 'info');
+
+        // Poll for authorization (up to 45 seconds)
+        let authorized = false;
+        for (let i = 0; i < 45; i++) {
+          await new Promise(r => setTimeout(r, 1000));
+          const statusRes = await fetch(`/api/enroll/status?token=${token}`);
+          const statusData = await statusRes.json();
+          if (statusData.ok && statusData.status === 'completed') {
+            authorized = true;
+            showToast('Biometrics Validated', 'Fingerprint verified & new face profile enrolled successfully!', 'success');
+            break;
+          } else if (statusData.status === 'failed') {
+            showToast('Enrollment Failed', statusData.error || 'Face capture failed after verification', 'warning');
+            authorized = true;
+            break;
+          }
+        }
+        if (!authorized) {
+          showToast('Timed Out', 'Phone fingerprint confirmation timed out.', 'warning');
+        }
+      } catch (e) {
+        showToast('Error', e.message, 'warning');
+      } finally {
+        btn.innerHTML = '<i data-lucide="scan-face" class="w-3.5 h-3.5"></i> <span>Re-enroll Biometrics</span>';
+        refreshIcons();
+      }
+    }
+
+    // 12. Hardware Camera, Power & Safety Controls
+    let isCameraPaused = false;
+    let isForcedEco = false;
+    let isStayAwake = false;
+
+    async function toggleCameraPause() {
+      try {
+        const res = await fetch('/api/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'toggle_camera' })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          updateCameraPauseState(data.paused);
+          showToast(data.paused ? 'Camera Paused' : 'Camera Resumed', data.paused ? 'Hardware sensor released' : 'Optical telemetry active', 'info');
+        }
+      } catch (e) {
+        showToast('Error', e.message, 'warning');
+      }
+    }
+
+    function updateCameraPauseState(paused) {
+      isCameraPaused = paused;
+      const overlay = document.getElementById('cam-paused-overlay');
+      const label = document.getElementById('pause-cam-label');
+      const btn = document.getElementById('btn-pause-cam');
+      const dot = document.getElementById('stream-status-dot');
+      const streamLabel = document.getElementById('stream-label');
+
+      if (paused) {
+        if (overlay) overlay.classList.remove('hidden');
+        if (label) label.textContent = 'Resume Cam';
+        if (btn) btn.classList.add('border-amber-500/50', 'bg-amber-500/10', 'text-amber-300');
+        if (dot) dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        if (streamLabel) streamLabel.textContent = 'Hardware Sensor Paused (Privacy)';
+      } else {
+        if (overlay) overlay.classList.add('hidden');
+        if (label) label.textContent = 'Pause Cam';
+        if (btn) btn.classList.remove('border-amber-500/50', 'bg-amber-500/10', 'text-amber-300');
+        if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        if (streamLabel) streamLabel.textContent = isForcedEco ? 'Eco Mode (15s Snapshot)' : 'DirectShow Active (30 FPS)';
+      }
+      refreshIcons();
+    }
+
+    async function toggleEcoMode() {
+      try {
+        const res = await fetch('/api/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'toggle_eco' })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          updateEcoState(data.eco_mode);
+          showToast(data.eco_mode ? 'Eco Mode Engaged' : 'Performance Mode', data.eco_mode ? 'Reduced CPU to <0.5% (15s snapshots)' : '30 FPS continuous inference', 'info');
+        }
+      } catch (e) {
+        showToast('Error', e.message, 'warning');
+      }
+    }
+
+    function updateEcoState(enabled) {
+      isForcedEco = enabled;
+      const btn = document.getElementById('btn-eco');
+      const label = document.getElementById('eco-btn-label');
+      const streamLabel = document.getElementById('stream-label');
+      const fpsEl = document.getElementById('cam-fps');
+
+      if (enabled) {
+        if (btn) btn.classList.add('border-emerald-500/50', 'bg-emerald-500/10', 'text-emerald-300');
+        if (label) label.textContent = 'Eco Active';
+        if (!isCameraPaused) {
+          if (streamLabel) streamLabel.textContent = 'Eco Mode (15s Snapshot)';
+          if (fpsEl) fpsEl.textContent = 'Eco';
+        }
+      } else {
+        if (btn) btn.classList.remove('border-emerald-500/50', 'bg-emerald-500/10', 'text-emerald-300');
+        if (label) label.textContent = 'Eco Mode';
+        if (!isCameraPaused) {
+          if (streamLabel) streamLabel.textContent = 'DirectShow Active (30 FPS)';
+          if (fpsEl) fpsEl.textContent = '30';
+        }
+      }
+    }
+
+    async function takeSnapshot() {
+      try {
+        showToast('Capturing', 'Saving high-resolution frame…', 'info');
+        const res = await fetch('/api/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'take_snapshot' })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          const fn = data.path.split(/[/\\\\]/).pop();
+          showToast('Snapshot Saved', fn, 'info');
+        } else {
+          showToast('Snapshot Failed', data.error || 'Camera unreadable', 'warning');
+        }
+      } catch (e) {
+        showToast('Error', e.message, 'warning');
+      }
+    }
+
+    async function toggleStayAwake() {
+      try {
+        const res = await fetch('/api/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'toggle_stay_awake' })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          updateStayAwakeState(data.stay_awake);
+          showToast(data.stay_awake ? 'Stay-Awake Active' : 'Auto-Lock Armed', data.stay_awake ? 'PC will not lock on absence' : '120s absence debounce active', 'info');
+        }
+      } catch (e) {
+        showToast('Error', e.message, 'warning');
+      }
+    }
+
+    function updateStayAwakeState(active) {
+      isStayAwake = active;
+      const btn = document.getElementById('btn-stay-awake');
+      const label = document.getElementById('stay-awake-label');
+      const icon = document.getElementById('stay-awake-icon');
+
+      if (active) {
+        if (btn) btn.className = 'px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-[11px] font-semibold text-amber-300 flex items-center gap-1.5 transition-all shadow-[0_0_12px_rgba(245,158,11,0.2)]';
+        if (label) label.textContent = 'Active (Override)';
+        if (icon) icon.className = 'w-3 h-3 text-amber-300';
+      } else {
+        if (btn) btn.className = 'px-2.5 py-1 rounded-lg bg-zinc-900 border border-white/10 hover:border-white/30 text-[11px] font-semibold text-zinc-400 hover:text-white flex items-center gap-1.5 transition-all';
+        if (label) label.textContent = 'Disabled';
+        if (icon) icon.className = 'w-3 h-3 text-zinc-400';
+      }
+      refreshIcons();
+    }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const s = await res.json();
+        if (s.presence) updatePresence(s.presence);
+        if (s.mode) updateMode(s.mode);
+        if (s.focus_active !== undefined) updateFocus(s.focus_active);
+        if (s.camera_paused !== undefined) updateCameraPauseState(s.camera_paused);
+        if (s.eco_mode !== undefined) updateEcoState(s.eco_mode);
+        if (s.stay_awake !== undefined) updateStayAwakeState(s.stay_awake);
+        if (s.clipboard_text !== undefined) updateClipboardPreview(s.clipboard_text);
+      } catch (e) {}
+      pollStats();
+    }
+
+    // 14. Universal Clipboard Engine
+    let clipboardDebounce = null;
+    function updateClipboardPreview(text) {
+      const area = document.getElementById('clip-textarea');
+      const count = document.getElementById('clip-char-count');
+      if (area && area.value !== text) {
+        area.value = text || '';
+        if (count) count.textContent = `${(text || '').length} chars`;
+        gsap.fromTo(area, { borderColor: 'rgba(52, 211, 153, 0.8)' }, { borderColor: 'rgba(255, 255, 255, 0.1)', duration: 0.8 });
+      }
+    }
+
+    async function sendClipboardToMobile(textOverride) {
+      const area = document.getElementById('clip-textarea');
+      const text = textOverride !== undefined ? textOverride : (area ? area.value : '');
+      if (!text) {
+        showToast('Clipboard Empty', 'Please enter or paste text to send to mobile', 'warning');
+        return;
+      }
+      try {
+        const res = await fetch('/api/clipboard/send_to_phone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const d = await res.json();
+        if (d.ok) {
+          const conf = document.getElementById('clip-send-confirmation');
+          if (conf) {
+            conf.textContent = `✓ Sent to mobile: ${text.length} characters copied to phone clipboard!`;
+            conf.classList.remove('hidden');
+            setTimeout(() => conf.classList.add('hidden'), 4500);
+          }
+          showToast('Sent to Mobile', `${text.length} characters synced to phone clipboard`, 'info');
+          if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
+        } else {
+          showToast('Clipboard Error', d.error || 'Failed to send to mobile', 'warning');
+        }
+      } catch (err) {
+        showToast('Clipboard Error', 'Network error sending to phone', 'warning');
+      }
+    }
+
+
+
+    // 16. AirDrop / QuickShare Direct File Bridge
+    async function handleFileUpload(event, target = 'laptop') {
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+
+      const progressBox = document.getElementById('file-upload-progress');
+      const bar = document.getElementById('upload-bar');
+      const pct = document.getElementById('upload-pct');
+      const nameLabel = document.getElementById('upload-filename');
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (progressBox) progressBox.classList.remove('hidden');
+        if (nameLabel) nameLabel.textContent = (target === 'mobile' ? '📱 Pushing ' : '💻 Uploading ') + file.name;
+
+        await new Promise((resolve) => {
+          const xhr = new XMLHttpRequest();
+          const uploadUrl = target === 'mobile' ? '/api/files/upload?target=mobile' : '/api/files/upload';
+          xhr.open('POST', uploadUrl, true);
+
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const percent = Math.round((e.loaded / e.total) * 100);
+              if (bar) bar.style.width = percent + '%';
+              if (pct) pct.textContent = percent + '%';
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status === 200) {
+              const conf = document.getElementById('file-upload-confirmation');
+              if (conf) {
+                conf.textContent = `✓ Sent "${file.name}" to Phone!`;
+                conf.classList.remove('hidden');
+                setTimeout(() => conf.classList.add('hidden'), 5000);
+              }
+              showToast('Delivered to Phone', `${file.name} sent to your phone's Downloads!`, 'success');
+              if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
+              resolve();
+            } else {
+              showToast('Upload Failed', `Error: ${xhr.statusText}`, 'warning');
+              resolve();
+            }
+          };
+
+          xhr.onerror = () => {
+            showToast('Network Error', 'Could not transfer file', 'warning');
+            resolve();
+          };
+
+          const formData = new FormData();
+          formData.append('file', file);
+          xhr.send(formData);
+        });
+      }
+
+      if (progressBox) {
+        setTimeout(() => progressBox.classList.add('hidden'), 1000);
+      }
+      event.target.value = '';
+    }
+
+    async function pushFileToPhone(filename) {
+      try {
+        showToast('Sending to Phone', `Pushing ${filename} to your phone...`, 'info');
+        const res = await fetch('/api/files/push_to_phone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast('Delivered to Phone', `${filename} sent directly to phone Downloads!`, 'success');
+        } else {
+          showToast('Transfer Failed', data.error || 'Could not push file to phone', 'warning');
+        }
+      } catch (e) {
+        showToast('Network Error', e.message, 'warning');
+      }
+    }
+
+    async function fetchFileList() {}
+
+    // 13. Monochromatic Toasts
+    function showToast(title, msg, type = 'info') {
+      const c = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className = 'p-4 rounded-xl border border-white/20 bg-black/90 backdrop-blur-xl shadow-2xl text-xs pointer-events-auto transform translate-y-2 opacity-0';
+      el.innerHTML = `
+        <div class="flex items-center gap-2 mb-1">
+          <span class="w-2 h-2 rounded-full ${type === 'warning' ? 'bg-rose-400' : 'bg-white'}"></span>
+          <div class="font-bold text-white tracking-tight">${title}</div>
+        </div>
+        <div class="text-zinc-400 font-mono text-[11px]">${msg}</div>
+      `;
+      c.appendChild(el);
+      gsap.to(el, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" });
+      setTimeout(() => {
+        gsap.to(el, { opacity: 0, y: -8, duration: 0.25, onComplete: () => el.remove() });
+      }, 4000);
+    }
+
+    // 13. Animated Rolling Numbers for Stats
+    let prevStats = { focus: 0, posture: 0, intruder: 0 };
+    async function pollStats() {
+      try {
+        const res = await fetch('/api/stats');
+        const s = await res.json();
+        
+        animateCounter('stat-focus', prevStats.focus, s.focus_minutes || 0, ' min');
+        animateCounter('focus-time', prevStats.focus, s.focus_minutes || 0, ' min');
+        animateCounter('stat-posture', prevStats.posture, s.posture_alerts || 0, '');
+        animateCounter('stat-intruder', prevStats.intruder, s.intruder_alerts || 0, '');
+
+        prevStats = {
+          focus: s.focus_minutes || 0,
+          posture: s.posture_alerts || 0,
+          intruder: s.intruder_alerts || 0
+        };
+      } catch (e) {}
+    }
+
+    function animateCounter(id, start, end, suffix) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const obj = { val: start };
+      gsap.to(obj, {
+        val: end,
+        duration: 0.8,
+        ease: "power2.out",
+        onUpdate: () => {
+          el.textContent = Math.round(obj.val) + suffix;
+        }
+      });
+    }
+
+    // 14. Real-time Animated Biometric Oscilloscope Waveform Canvas
+    function initBiometricWaveform() {
+      const canvas = document.getElementById('biometric-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let step = 0;
+
+      function resize() {
+        canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+        canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      function draw() {
+        requestAnimationFrame(draw);
+        if (!canvas.width || !canvas.height) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const w = canvas.width;
+        const h = canvas.height;
+        const midY = h / 2;
+
+        ctx.lineWidth = 2 * window.devicePixelRatio;
+        ctx.strokeStyle = isOwnerVerified ? '#FFFFFF' : 'rgba(255, 255, 255, 0.35)';
+
+        ctx.beginPath();
+        step += 0.04;
+
+        // Base amplitude scaled by verified state and confidence
+        const amp = isOwnerVerified ? (h * 0.28 * Math.max(0.4, currentConfidence)) : (h * 0.08);
+
+        for (let x = 0; x < w; x += 4) {
+          const normX = x / w;
+          // Harmonic wave equation
+          const y = midY + Math.sin(normX * 12 + step) * amp * Math.cos(normX * 6 - step * 0.5);
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // Subtle glow overlay when verified
+        if (isOwnerVerified) {
+          ctx.lineWidth = 4 * window.devicePixelRatio;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+          ctx.stroke();
+        }
+      }
+      draw();
+    }
+
+    // 15. Power-User Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+      const key = e.key.toLowerCase();
+      if (key === 'l') {
+        lockWorkstation();
+      } else if (key === 'f') {
+        const isFocus = document.getElementById('focus-status').textContent.includes('active');
+        if (isFocus) endFocus(); else startFocus();
+      } else if (key === 'p') {
+        toggleCameraPause();
+      } else if (key === 'e') {
+        toggleEcoMode();
+      } else if (key === 's') {
+        takeSnapshot();
+      } else if (key === 'a') {
+        toggleStayAwake();
+      } else if (key === '1') {
+        switchMode('entertainment');
+      } else if (key === '2') {
+        switchMode('study');
+      } else if (key === '3') {
+        switchMode('coding');
+      } else if (key === '4') {
+        switchMode('exam');
+      }
+    });
+
+    // Entrance Orchestration
+    window.addEventListener('DOMContentLoaded', () => {
+      refreshIcons();
+      updateGlider('study');
+      connect();
+      fetchStatus();
+      initBiometricWaveform();
+      setInterval(pollStats, 15000);
+
+      // Clipboard auto-sync listener
+      const clipArea = document.getElementById('clip-textarea');
+      if (clipArea) {
+        clipArea.addEventListener('input', () => {
+          const count = document.getElementById('clip-char-count');
+          if (count) count.textContent = `${clipArea.value.length} chars`;
+        });
+      }
+
+
+
+      // Window paste listener
+      window.addEventListener('paste', (e) => {
+        if (!['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+          const text = (e.clipboardData || window.clipboardData).getData('text');
+          if (text) {
+            updateClipboardPreview(text);
+          }
+        }
+      });
+
+      // Drag and drop file support
+      const dropzone = document.getElementById('file-dropzone');
+      if (dropzone) {
+        ['dragenter', 'dragover'].forEach(name => {
+          dropzone.addEventListener(name, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('border-white', 'bg-zinc-900/80');
+          });
+        });
+        ['dragleave', 'drop'].forEach(name => {
+          dropzone.addEventListener(name, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('border-white', 'bg-zinc-900/80');
+          });
+        });
+        dropzone.addEventListener('drop', (e) => {
+          const dt = e.dataTransfer;
+          if (dt && dt.files && dt.files.length > 0) {
+            handleFileUpload({ target: { files: dt.files } });
+          }
+        });
+      }
+
+      // Staggered Entrance Animation
+      gsap.from(".anim-card", {
+        y: 30,
+        opacity: 0,
+        duration: 0.8,
+        stagger: 0.08,
+        ease: "power3.out"
+      });
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      const isVisible = !document.hidden;
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({
+          action: 'set_visibility',
+          visible: isVisible
+        }));
+      }
+      if (!isVisible) {
+        updateEcoBadge(true);
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      updateGlider(activeMode);
+    });
+  </script>
 </body>
 </html>

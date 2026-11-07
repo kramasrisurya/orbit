@@ -45,18 +45,51 @@ class ClipboardSync:
 
     def _on_phone_clipboard(self, event: OrbitEvent) -> None:
         text = event.payload.get("text", "")
-        if not text:
+        if not text or text == self._last_pushed:
             return
         logger.info("Phone → PC clipboard sync (%d chars)", len(text))
+        self._last_pushed = text
         try:
             set_clipboard(text)
+            self._bus.publish(OrbitEvent(
+                type="CLIPBOARD_UPDATED",
+                source="phone",
+                payload={"text": text},
+            ))
         except Exception:
             logger.exception("Failed to set PC clipboard")
+
+    def set_current(self, text: str) -> None:
+        """Set clipboard text directly and publish sync event."""
+        if not text:
+            return
+        self._last_pushed = text
+        try:
+            set_clipboard(text)
+            self._bus.publish(OrbitEvent(
+                type="CLIPBOARD_UPDATED",
+                source="clipboard_sync",
+                payload={"text": text},
+            ))
+            if self._ws is not None:
+                loop = getattr(self._bus, "_loop", None)
+                if loop and loop.is_running():
+                    asyncio.run_coroutine_threadsafe(
+                        self._ws.broadcast("clipboard", {"text": text}), loop
+                    )
+        except Exception:
+            logger.exception("Failed to write to PC clipboard")
+
+    def get_current(self) -> str:
+        try:
+            return get_clipboard()
+        except Exception:
+            return ""
 
     async def start(self) -> None:
         self._running = True
         self._task = asyncio.create_task(self._push_loop())
-        logger.info("ClipboardSync started")
+        logger.info("ClipboardSync started (0.8s responsive poll)")
 
     async def stop(self) -> None:
         self._running = False
@@ -69,22 +102,27 @@ class ClipboardSync:
         logger.info("ClipboardSync stopped")
 
     async def _push_loop(self) -> None:
-        """Periodically push the PC clipboard to the phone."""
+        """Continuously detect PC clipboard changes and push to phone / dashboard."""
         while self._running:
-            await asyncio.sleep(10)
+            await asyncio.sleep(0.8)
             if not self._running:
                 break
-            if self._ws is None or self._phone_id is None:
-                continue
             try:
                 text = get_clipboard()
                 if text and text != self._last_pushed:
                     self._last_pushed = text
-                    await self._ws.send_notification(
-                        self._phone_id,
-                        "clipboard",
-                        {"text": text},
-                    )
-                    logger.debug("PC → Phone clipboard push (%d chars)", len(text))
+                    logger.debug("PC → Phone/Dashboard clipboard sync (%d chars)", len(text))
+                    # 1. Forward to dashboard websocket clients
+                    self._bus.publish(OrbitEvent(
+                        type="CLIPBOARD_UPDATED",
+                        source="clipboard_sync",
+                        payload={"text": text},
+                    ))
+                    # 2. Forward to native phone companion if connected
+                    if self._ws is not None:
+                        try:
+                            await self._ws.broadcast("clipboard", {"text": text})
+                        except Exception:
+                            pass
             except Exception:
                 logger.exception("Clipboard push failed")

@@ -44,9 +44,6 @@ class OrbitApp : Application() {
         // Initialize Firebase (optional — falls back to WebSocket-only)
         initFirebase()
 
-        // Start foreground services
-        startServices()
-
         Log.i(TAG, "ORBIT app initialized")
     }
 
@@ -60,15 +57,13 @@ class OrbitApp : Application() {
         }
     }
 
-    private fun startServices() {
-        // Start WebSocket service
-        startForegroundServiceSafely(WebSocketService::class.java)
-
-        // Start BLE service
-        startForegroundServiceSafely(BleService::class.java)
+    fun startServices() {
+        if (prefs.isPaired()) {
+            startForegroundServiceSafely(WebSocketService::class.java)
+        }
     }
 
-    private fun startForegroundServiceSafely(serviceClass: Class<out android.app.Service>) {
+    fun startForegroundServiceSafely(serviceClass: Class<out android.app.Service>) {
         try {
             val intent = Intent(this, serviceClass)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {

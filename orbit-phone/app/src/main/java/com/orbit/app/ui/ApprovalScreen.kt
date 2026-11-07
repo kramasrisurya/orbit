@@ -1,6 +1,5 @@
 package com.orbit.app.ui
 
-import android.app.Activity
 import android.content.Context
 import android.os.Bundle
 import android.util.Base64
@@ -9,6 +8,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -37,7 +38,7 @@ import org.json.JSONObject
  * - Timeout → auto-denies
  * - Cannot be swiped away until a decision is made
  */
-class ApprovalScreen : Activity() {
+class ApprovalScreen : FragmentActivity() {
 
     private var decided = false
     private var action = ""
@@ -74,8 +75,8 @@ class ApprovalScreen : Activity() {
 
         val prompt = BiometricPrompt(
             this,
-            ContextCompat.getExecutor(this),
-            object : BiometricPrompt.Callback() {
+            androidx.core.content.ContextCompat.getMainExecutor(this),
+            object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     approve()
                 }
@@ -88,7 +89,7 @@ class ApprovalScreen : Activity() {
             }
         )
         prompt.authenticate(
-            BiometricPrompt.PromptOptions.Builder()
+            BiometricPrompt.PromptInfo.Builder()
                 .setTitle("ORBIT Approval")
                 .setNegativeButtonText("Cancel")
                 .build()
@@ -124,13 +125,6 @@ class ApprovalScreen : Activity() {
             return
         }
         super.onBackPressed()
-    }
-}
-
-// Helper for BiometricPrompt executor
-object ContextCompat {
-    fun getExecutor(activity: Activity): java.util.concurrent.Executor {
-        return java.util.concurrent.Executors.newSingleThreadExecutor()
     }
 }
 

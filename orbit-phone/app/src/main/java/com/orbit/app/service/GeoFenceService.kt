@@ -3,12 +3,10 @@ package com.orbit.app.service
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.location.Geofence
-import android.location.GeofencingClient
-import android.location.GeofencingRequest
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
@@ -39,54 +37,73 @@ class GeoFenceService : Service() {
         createChannel()
         pcConnection = (application as com.orbit.app.OrbitApp).pcConnection
         prefs = Prefs(applicationContext)
-        startForeground(NOTIF_ID, buildNotification("ORBIT — GeoFence Active"))
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIF_ID, buildNotification("ORBIT — GeoFence Active"), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+            } else {
+                startForeground(NOTIF_ID, buildNotification("ORBIT — GeoFence Active"))
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "GeoFenceService startForeground error: ${e.message}")
+        }
         Log.i(TAG, "GeoFenceService created")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        scope.launch { setupGeofence() }
+        setupGeofence()
         return START_STICKY
     }
 
-    private suspend fun setupGeofence() {
+    private fun setupGeofence() {
         try {
             geofencingClient = LocationServices.getGeofencingClient(this)
             fusedClient = LocationServices.getFusedLocationProviderClient(this)
 
-            // Get current location as the geofence center
-            val location = fusedClient!!.lastLocation.await()
-            if (location == null) {
-                Log.w(TAG, "No location available for geofence")
-                return
+            fusedClient?.lastLocation?.addOnSuccessListener { location ->
+                if (location == null) {
+                    Log.w(TAG, "No location available for geofence")
+                    return@addOnSuccessListener
+                }
+
+                val geofence = Geofence.Builder()
+                    .setRequestId("orbit_home")
+                    .setCircularRegion(
+                        location.latitude,
+                        location.longitude,
+                        prefs.geoRadius.toFloat()
+                    )
+                    .setExpirationDuration(Geofence.NEVER_EXPIRE)
+                    .setTransitionTypes(
+                        Geofence.GEOFENCE_TRANSITION_EXIT or
+                        Geofence.GEOFENCE_TRANSITION_ENTER
+                    )
+                    .build()
+
+                val request = GeofencingRequest.Builder()
+                    .addGeofence(geofence)
+                    .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+                    .build()
+
+                val intent = Intent(this, GeofenceBroadcastReceiver::class.java)
+                val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                } else {
+                    PendingIntent.FLAG_UPDATE_CURRENT
+                }
+                val pendingIntent = PendingIntent.getBroadcast(this, 0, intent, flags)
+
+                try {
+                    geofencingClient?.addGeofences(request, pendingIntent)
+                        ?.addOnSuccessListener {
+                            Log.i(TAG, "Geofence registered at (${location.latitude}, ${location.longitude})")
+                        }
+                        ?.addOnFailureListener { e ->
+                            Log.e(TAG, "Failed to add geofence: ${e.message}")
+                        }
+                } catch (se: SecurityException) {
+                    Log.e(TAG, "Permission missing for geofence: ${se.message}")
+                }
             }
-
-            val geofence = Geofence.Builder()
-                .setRequestId("orbit_home")
-                .setCircularRegion(
-                    location.latitude,
-                    location.longitude,
-                    prefs.geoRadius.toFloat()
-                )
-                .setExpirationDuration(Geofence.NEVER_EXPIRE)
-                .setTransitionTypes(
-                    Geofence.GEOFENCE_TRANSITION_EXIT or
-                    Geofence.GEOFENCE_TRANSITION_ENTER
-                )
-                .build()
-
-            val request = GeofencingRequest.Builder()
-                .addGeofence(geofence)
-                .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
-                .build()
-
-            val intent = Intent(this, GeofenceBroadcastReceiver::class.java)
-            geofencingClient!!.addGeofences(request, intent)
-                .addOnSuccessListener {
-                    Log.i(TAG, "Geofence added at (${location.latitude}, ${location.longitude}) r=${prefs.geoRadius}m")
-                }
-                .addOnFailureListener { e ->
-                    Log.e(TAG, "Failed to add geofence: ${e.message}")
-                }
         } catch (e: Exception) {
             Log.e(TAG, "Geofence setup failed: ${e.message}")
         }
@@ -95,8 +112,7 @@ class GeoFenceService : Service() {
     // Inner broadcast receiver for geofence transitions
     class GeofenceBroadcastReceiver : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            val result = GeofencingClient.getGeofencingEvent(intent)
-                ?: return
+            val result = GeofencingEvent.fromIntent(intent) ?: return
             val pcConnection = (context.applicationContext as com.orbit.app.OrbitApp).pcConnection
             val key = (context.applicationContext as com.orbit.app.OrbitApp).prefs
                 .pairingKey?.let { android.util.Base64.decode(it, android.util.Base64.NO_WRAP) }
@@ -104,19 +120,23 @@ class GeoFenceService : Service() {
 
             when (result.geofenceTransition) {
                 Geofence.GEOFENCE_TRANSITION_EXIT -> {
-                    Log.i(TAG, "Geofence EXIT — user left")
+                    Log.i("GeoFenceReceiver", "Geofence EXIT — user left")
                     sendGeo(pcConnection, key, "left")
                 }
                 Geofence.GEOFENCE_TRANSITION_ENTER -> {
-                    Log.i(TAG, "Geofence ENTER — user returned")
+                    Log.i("GeoFenceReceiver", "Geofence ENTER — user returned")
                     sendGeo(pcConnection, key, "returned")
                 }
             }
         }
 
-        private fun sendGeo(pc: PcConnection, key: ByteArray, status: String) {
-            val payload = JSONObject().apply { put("status", status) }
-            pc.send("geo", payload, key)
+        private fun sendGeo(pcConnection: PcConnection, key: ByteArray, status: String) {
+            val payload = JSONObject().apply {
+                put("type", "geo")
+                put("status", status)
+                put("ts", System.currentTimeMillis())
+            }
+            pcConnection.send("geo", payload, key)
         }
     }
 
@@ -132,22 +152,23 @@ class GeoFenceService : Service() {
     private fun createChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                channelName, "ORBIT GeoFence", NotificationManager.IMPORTANCE_LOW
+                channelName,
+                "ORBIT GeoFence",
+                NotificationManager.IMPORTANCE_LOW
             )
-            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-                .createNotificationChannel(channel)
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.createNotificationChannel(channel)
         }
     }
 
     override fun onDestroy() {
         scope.cancel()
         super.onDestroy()
-        Log.i(TAG, "GeoFenceService destroyed")
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
-        const val NOTIF_ID = 3
+        const val NOTIF_ID = 2
     }
 }

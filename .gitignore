@@ -20,10 +20,14 @@ env/
 # Config (keep the bundled default, ignore user overrides)
 orbit/config/user.yaml
 
-# Secrets
+# Secrets & Personal data
 firebase_credentials.json
 *.key
 *.pem
+*.jpeg
+*.jpg
+win32_test.png
+orbit-ui-prompt.md
 
 # IDE
 .idea/

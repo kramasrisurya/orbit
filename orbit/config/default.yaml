@@ -1,7 +1,7 @@
 presence:
-  lock_timeout_sec: 15
+  lock_timeout_sec: 120
   keep_alive_interval_sec: 30
-  face_recognition_threshold: 0.6
+  face_recognition_threshold: 0.35
   ble_grace_period_sec: 10
 
 vision:
@@ -11,6 +11,7 @@ vision:
   posture_alert_threshold_sec: 300
   multi_person_min_count: 2
   camera_index: 0
+  background_interval_sec: 15.0
 
 phone:
   websocket_port: 8765
@@ -20,8 +21,8 @@ phone:
   approval_timeout_sec: 30
 
 security:
-  intruder_action: "alert_and_lock"
-  record_on_intruder: true
+  intruder_action: "alert"
+  record_on_intruder: false
   record_duration_sec: 30
   snapshot_dir: "~/ORBIT/security/snapshots"
   recording_dir: "~/ORBIT/security/recordings"
@@ -34,8 +35,31 @@ health:
   daily_report_time: "18:00"
 
 modes:
-  work:
+  entertainment:
+    lock_timeout_sec: 180
+    notifications: "normal"
+    volume: 1.0
+    apps_to_open: ["brave"]
+    url: "https://www.youtube.com"
+  study:
+    lock_timeout_sec: 30
+    notifications: "critical_only"
+    volume: 0.0
+    apps_to_open: ["brave"]
+    url: "https://aumsam.amrita.edu/cas/login?service=https%3A%2F%2Faumsam.amrita.edu%2Faums%2FJsp%2FAttendance%2FAttendanceReportStudent.jsp%3Faction%3DUMS-ATD_INIT_ATDREPORTSTUD_SCREEN%26isMenu%3Dtrue%26pagePostSerialID%3D1"
+  coding:
+    lock_timeout_sec: 60
+    notifications: "normal"
+    volume: 0.25
+    apps_to_open: ["code"]
+  exam:
     lock_timeout_sec: 15
+    notifications: "muted"
+    volume: 0.0
+    apps_to_open: ["brave"]
+    url: "https://aumsam.amrita.edu/cas/login?service=https%3A%2F%2Faumsam.amrita.edu%2Faums%2FJsp%2FAttendance%2FAttendanceReportStudent.jsp%3Faction%3DUMS-ATD_INIT_ATDREPORTSTUD_SCREEN%26isMenu%3Dtrue%26pagePostSerialID%3D1"
+  work:
+    lock_timeout_sec: 120
     notifications: "normal"
     apps_to_open: ["code", "firefox", "terminal"]
     wallpaper: "~/Wallpapers/work.jpg"
@@ -49,6 +73,10 @@ modes:
     notifications: "normal"
     apps_to_open: ["firefox", "spotify"]
     wallpaper: "~/Wallpapers/home.jpg"
+  away:
+    lock_timeout_sec: 0
+    notifications: "muted"
+    apps_to_open: []
   presenting:
     lock_timeout_sec: 300
     notifications: "critical_only"

@@ -27,6 +27,8 @@ cryptography>=41.0
 # Windows integration
 win10toast>=0.9
 pystray>=0.19.5
+pywin32>=306
+pycaw>=20240210
 
 # Testing / dev
 pytest>=7.4.0

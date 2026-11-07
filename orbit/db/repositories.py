@@ -10,8 +10,12 @@ import json
 import logging
 from datetime import datetime, date
 
-from core.event_bus import OrbitEvent
-from db.database import Database
+try:
+    from orbit.core.event_bus import OrbitEvent
+    from orbit.db.database import Database
+except ImportError:
+    from core.event_bus import OrbitEvent
+    from db.database import Database
 
 logger = logging.getLogger("orbit.db.repositories")
 

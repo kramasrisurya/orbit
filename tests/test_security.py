@@ -91,3 +91,24 @@ def test_intruder_detector_cooldown(event_bus: EventBus, mock_config):
         payload={"count": 2}
     ))
     assert detector._last_alert_time == t1
+
+
+def test_intruder_unauthorized_user_alert(event_bus: EventBus, mock_config):
+    from unittest.mock import MagicMock
+    from core.event_bus import INTRUDER_ALERT
+
+    mock_notifier = MagicMock()
+    detector = IntruderDetector(bus=event_bus, config=mock_config, notifier=mock_notifier)
+
+    event_bus.publish(OrbitEvent(
+        type=INTRUDER_ALERT,
+        source="vision",
+        payload={"reason": "unauthorized_user", "faces": 1}
+    ))
+
+    assert detector._last_alert_time > 0
+    assert mock_notifier.send.called
+    call_args = mock_notifier.send.call_args[0]
+    assert call_args[0] == "intruder_alert"
+    assert "Unauthorized" in call_args[1]
+

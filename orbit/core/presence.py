@@ -241,54 +241,23 @@ class PresenceCore:
     # Auto-lock
     # ------------------------------------------------------------------
     async def _auto_lock_loop(self) -> None:
-        """Periodically check if we should auto-lock."""
+        """Periodically check presence. Auto-lock is disabled per user preference ('turning off the laptop is not needed')."""
         while self._running:
-            await asyncio.sleep(1)
+            await asyncio.sleep(5)
             if not self._running:
                 break
-
-            now = datetime.now()
-            state = self._state
-
-            if state == PresenceState.ABSENT:
-                elapsed = (now - self._state_entered).total_seconds()
-                timeout = self._config.presence_lock_timeout_sec
-
-                if elapsed >= timeout and not self._stay_awake_overrides:
-                    logger.info(
-                        "Auto-lock: absent for %.0fs (timeout=%ds)",
-                        elapsed, timeout,
-                    )
-                    lock_workstation()
-                    self._bus.publish(OrbitEvent(
-                        type=PC_LOCKED,
-                        source="core",
-                        payload={"reason": "auto_lock_absent"},
-                    ))
-                    if self._notifier:
-                        try:
-                            self._notifier.send(
-                                "pc_locked",
-                                "PC Locked",
-                                f"Your PC was locked after {int(elapsed)}s of inactivity.",
-                            )
-                        except Exception:
-                            logger.exception("Failed to send pc_locked notification")
-                    # Reset the timer so we don't re-lock every second
-                    self._state_entered = now
 
     # ------------------------------------------------------------------
     # Keep-alive
     # ------------------------------------------------------------------
     async def _keep_alive_loop(self) -> None:
-        """While present, periodically simulate activity to prevent OS lock."""
+        """Periodically simulate activity to prevent Windows sleep or lock screen ('turning off laptop not needed')."""
         while self._running:
             await asyncio.sleep(self._config.presence_keep_alive_interval_sec)
             if not self._running:
                 break
-            if self._state in (PresenceState.PRESENT_HIGH, PresenceState.PRESENT_MEDIUM):
-                simulate_activity()
-                logger.debug("Keep-alive: simulated activity")
+            simulate_activity()
+            logger.debug("Keep-alive: simulated activity to maintain awake state")
 
     # ------------------------------------------------------------------
     # Stay-awake overrides

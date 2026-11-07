@@ -24,7 +24,10 @@ from core.event_bus import (
     GESTURE_RECOGNIZED, PHONE_SHAKE, PHONE_REMOTE_COMMAND,
     NFC_MODE_TRIGGERED,
 )
-from command import windows_api
+try:
+    from orbit.command import windows_api
+except ImportError:
+    from command import windows_api
 from utils import windows
 
 logger = logging.getLogger("orbit.command.engine")
@@ -72,13 +75,8 @@ class CommandEngine:
 
     def _on_shake(self, event: OrbitEvent) -> None:
         count = int(event.payload.get("count", 1))
-        mapping = {1: "screenshot", 2: "lock", 3: "next_app"}
-        action = mapping.get(count)
-        if action is None:
-            logger.warning("Unknown shake count: %d", count)
-            return
-        logger.info("Phone shake x%d → %s", count, action)
-        self._execute(action, source=f"shake:{count}")
+        # Log shake events without executing disruptive lock/screenshot actions on accidental phone motion
+        logger.info("Phone shake detected: count=%d (auto-lock and screenshot actions disabled)", count)
 
     def _on_remote(self, event: OrbitEvent) -> None:
         action = event.payload.get("action", "")
@@ -102,7 +100,8 @@ class CommandEngine:
         Execute an action string, with an approval gate for sensitive
         actions. Schedules the async approval flow on the event loop.
         """
-        if action in SENSITIVE_ACTIONS and self._approval is not None:
+        # Actions triggered directly from paired phone remote or phone shake do not require phone self-approval
+        if action in SENSITIVE_ACTIONS and self._approval is not None and not source.startswith("phone") and not source.startswith("shake"):
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
@@ -164,6 +163,19 @@ class CommandEngine:
                 else:
                     logger.warning("meeting_mode: no ModeManager")
 
+            elif action.startswith("mode:") or action.startswith("switch_mode:"):
+                target_mode = action.split(":", 1)[1]
+                if self._mode_manager:
+                    self._mode_manager.switch_mode(target_mode)
+                else:
+                    logger.warning("switch_mode: no ModeManager")
+
+            elif action in ("entertainment", "study", "coding", "exam", "work", "meeting", "home", "away", "presenting"):
+                if self._mode_manager:
+                    self._mode_manager.switch_mode(action)
+                else:
+                    logger.warning("mode switch: no ModeManager")
+
             elif action.startswith("launch:"):
                 app = action.split(":", 1)[1]
                 windows_api.launch_app(app)
@@ -193,6 +205,12 @@ class CommandEngine:
                 self._bus.publish(OrbitEvent(
                     type="FOCUS_SESSION_END", source="command",
                     payload={"trigger": source},
+                ))
+
+            elif action in ("pause_camera", "resume_camera", "toggle_camera"):
+                self._bus.publish(OrbitEvent(
+                    type="COMMAND", source="phone_remote",
+                    payload={"action": action, "paused": True if action == "pause_camera" else (False if action == "resume_camera" else None)},
                 ))
 
             else:

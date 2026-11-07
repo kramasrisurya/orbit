@@ -5,9 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothLeAdvertiser
+import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
+import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -31,7 +32,15 @@ class BleService : Service() {
     override fun onCreate() {
         super.onCreate()
         createChannel()
-        startForeground(NOTIF_ID, buildNotification("ORBIT — Searching for PC"))
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIF_ID, buildNotification("ORBIT — Searching for PC"), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+            } else {
+                startForeground(NOTIF_ID, buildNotification("ORBIT — Searching for PC"))
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "BleService startForeground error: ${e.message}")
+        }
         Log.i(TAG, "BleService created")
     }
 
@@ -60,23 +69,34 @@ class BleService : Service() {
         }
     }
 
+    private val advertiseCallback = object : AdvertiseCallback() {
+        override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
+            super.onStartSuccess(settingsInEffect)
+            advertising = true
+        }
+
+        override fun onStartFailure(errorCode: Int) {
+            super.onStartFailure(errorCode)
+            advertising = false
+            Log.w(TAG, "BLE advertising failed: $errorCode")
+        }
+    }
+
     private suspend fun advertiseOnce(advertiser: BluetoothLeAdvertiser?) {
         advertiser ?: return
         if (advertising) return
-        advertising = true
 
         val settings = AdvertiseSettings.Builder()
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_POWER)
             .setConnectable(false)
-            .setTimingInterval(AdvertiseSettings.ADVERTISE_SLOW_INTERVAL_MIN,
-                AdvertiseSettings.ADVERTISE_SLOW_INTERVAL_MAX)
+            .setTimeout(3000)
             .build()
 
         val data = AdvertiseData.Builder()
             .setIncludeDeviceName(false)
             .apply {
                 try {
-                    addServiceUuid(android.util.UUID.fromString(Constants.ORBIT_BLE_SERVICE_UUID))
+                    addServiceUuid(android.os.ParcelUuid.fromString(Constants.ORBIT_BLE_SERVICE_UUID))
                 } catch (e: Exception) {
                     Log.e(TAG, "Invalid BLE UUID: ${e.message}")
                 }
@@ -84,10 +104,7 @@ class BleService : Service() {
             .build()
 
         try {
-            advertiser.startAdvertising(settings, data) { status ->
-                advertising = false
-                if (status != 0) Log.w(TAG, "Advertising stopped: $status")
-            }
+            advertiser.startAdvertising(settings, data, advertiseCallback)
         } catch (e: Exception) {
             advertising = false
             Log.e(TAG, "startAdvertising threw: ${e.message}")
@@ -97,7 +114,7 @@ class BleService : Service() {
     override fun onDestroy() {
         job?.cancel()
         try {
-            advertiser?.stopAdvertising { }
+            advertiser?.stopAdvertising(advertiseCallback)
         } catch (e: Exception) {
             // ignore
         }

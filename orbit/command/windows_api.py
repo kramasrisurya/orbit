@@ -26,6 +26,9 @@ APP_ALIASES: dict[str, str] = {
     "code": "code",
     "firefox": "firefox",
     "chrome": "chrome",
+    "brave": r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+    "youtube": "https://www.youtube.com",
+    "aums": "https://aumsam.amrita.edu/cas/login?service=https%3A%2F%2Faumsam.amrita.edu%2Faums%2FJsp%2FAttendance%2FAttendanceReportStudent.jsp%3Faction%3DUMS-ATD_INIT_ATDREPORTSTUD_SCREEN%26isMenu%3Dtrue%26pagePostSerialID%3D1",
     "terminal": "wt" if sys.platform == "win32" else "xterm",
     "powershell": "powershell",
     "cmd": "cmd",
@@ -39,23 +42,76 @@ APP_ALIASES: dict[str, str] = {
 
 
 def take_screenshot() -> Path | None:
-    """Capture the screen, save to ~/ORBIT/screenshots/{date}/{time}.png, return path."""
+    """Capture the screen via Win32 GDI, save to ~/ORBIT/screenshots and ~/Downloads."""
     try:
-        from PIL import ImageGrab
-    except ImportError:
-        logger.error("Pillow not installed — cannot take screenshot")
-        return None
+        from PIL import Image
+        import ctypes
+        from ctypes import wintypes
+        import shutil
 
-    try:
         day = datetime.now().strftime("%Y-%m-%d")
         day_dir = SCREENSHOT_DIR / day
         day_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.now().strftime("%H%M%S")
         path = day_dir / f"{ts}.png"
 
-        img = ImageGrab.grab()
+        user32 = ctypes.windll.user32
+        gdi32 = ctypes.windll.gdi32
+
+        # Attach to input desktop
+        hdesk = user32.OpenInputDesktop(0, False, 0x01FF)
+        if hdesk:
+            user32.SetThreadDesktop(hdesk)
+
+        width = user32.GetSystemMetrics(0)
+        height = user32.GetSystemMetrics(1)
+
+        hdc_screen = user32.GetDC(0)
+        hdc_mem = gdi32.CreateCompatibleDC(hdc_screen)
+        hbitmap = gdi32.CreateCompatibleBitmap(hdc_screen, width, height)
+        gdi32.SelectObject(hdc_mem, hbitmap)
+
+        gdi32.BitBlt(hdc_mem, 0, 0, width, height, hdc_screen, 0, 0, 0x00CC0020)
+
+        class BITMAPINFOHEADER(ctypes.Structure):
+            _fields_ = [
+                ('biSize', wintypes.DWORD),
+                ('biWidth', wintypes.LONG),
+                ('biHeight', wintypes.LONG),
+                ('biPlanes', wintypes.WORD),
+                ('biBitCount', wintypes.WORD),
+                ('biCompression', wintypes.DWORD),
+                ('biSizeImage', wintypes.DWORD),
+                ('biXPelsPerMeter', wintypes.LONG),
+                ('biYPelsPerMeter', wintypes.LONG),
+                ('biClrUsed', wintypes.DWORD),
+                ('biClrImportant', wintypes.DWORD),
+            ]
+
+        bmi = BITMAPINFOHEADER()
+        bmi.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+        bmi.biWidth = width
+        bmi.biHeight = -height
+        bmi.biPlanes = 1
+        bmi.biBitCount = 32
+        bmi.biCompression = 0
+
+        buf = ctypes.create_string_buffer(width * height * 4)
+        gdi32.GetDIBits(hdc_mem, hbitmap, 0, height, buf, ctypes.byref(bmi), 0)
+
+        img = Image.frombuffer('RGBA', (width, height), buf, 'raw', 'BGRA', 0, 1)
         img.save(path)
-        logger.info("Screenshot saved: %s", path)
+
+        # Also copy to Downloads folder for instant access
+        downloads_dir = Path.home() / "Downloads"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, downloads_dir / f"screenshot_{ts}.png")
+
+        gdi32.DeleteObject(hbitmap)
+        gdi32.DeleteDC(hdc_mem)
+        user32.ReleaseDC(0, hdc_screen)
+
+        logger.info("Screenshot saved: %s (and in Downloads)", path)
         return path
     except Exception:
         logger.exception("Screenshot failed")
@@ -64,37 +120,61 @@ def take_screenshot() -> Path | None:
 
 def launch_app(app_name: str) -> bool:
     """
-    Resolve an app name to an executable and launch it (detached).
+    Resolve an app name to an executable or URL and launch it (detached).
     Returns True on success.
     """
     cmd = APP_ALIASES.get(app_name.lower(), app_name)
 
-    # Check if it's on PATH
-    resolved = shutil.which(cmd)
-    if resolved is None:
-        # Try common Windows locations
-        if sys.platform == "win32":
-            program_files = os.environ.get("PROGRAMFILES", r"C:\Program Files")
-            local = os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)")
-            for base in (program_files, local):
-                candidate = Path(base) / cmd
-                if candidate.exists() or (candidate.with_suffix(".exe")).exists():
-                    resolved = str(candidate)
-                    break
-        if resolved is None:
-            logger.warning("Cannot resolve app: %s (as '%s')", app_name, cmd)
+    # Handle web URL shortcuts
+    if cmd.startswith("http://") or cmd.startswith("https://"):
+        try:
+            brave_path = Path(r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe")
+            if brave_path.exists() and sys.platform == "win32":
+                import ctypes
+                ctypes.windll.shell32.ShellExecuteW(None, "open", str(brave_path), cmd, None, 1)
+                logger.info("Opened URL %s in Brave via ShellExecuteW", cmd)
+                return True
+            import webbrowser
+            webbrowser.open(cmd)
+            logger.info("Opened URL %s in default browser", cmd)
+            return True
+        except Exception:
+            logger.exception("Failed to open URL shortcut: %s", cmd)
             return False
+
+    # Check direct executable file path
+    if Path(cmd).exists():
+        resolved = cmd
+    else:
+        # Check if it's on PATH
+        resolved = shutil.which(cmd)
+        if resolved is None:
+            # Try common Windows locations
+            if sys.platform == "win32":
+                program_files = os.environ.get("PROGRAMFILES", r"C:\Program Files")
+                local = os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)")
+                for base in (program_files, local):
+                    candidate = Path(base) / cmd
+                    if candidate.exists() or (candidate.with_suffix(".exe")).exists():
+                        resolved = str(candidate)
+                        break
+            if resolved is None:
+                logger.warning("Cannot resolve app: %s (as '%s')", app_name, cmd)
+                return False
 
     try:
         if sys.platform == "win32":
-            CREATE_NEW = 0x00000010
-            DETACHED = 0x00000008
-            subprocess.Popen(
-                [resolved],
-                creationflags=CREATE_NEW | DETACHED,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            import ctypes
+            # Use ShellExecuteW for GUI apps to guarantee proper foreground focus
+            res = ctypes.windll.shell32.ShellExecuteW(None, "open", str(resolved), None, None, 1)
+            if res <= 32:
+                # Fallback to subprocess if ShellExecute returns error
+                subprocess.Popen(
+                    [resolved],
+                    shell=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
         else:
             subprocess.Popen(
                 [resolved],
@@ -137,43 +217,24 @@ def minimize_all() -> None:
     We press once to minimize everything to the desktop."""
     windows.send_input_event("win+d")
     time.sleep(0.3)
-    # Press again to restore? No — we want to minimize. Single press shows desktop.
     logger.info("Minimized all windows (showed desktop)")
 
 
 def mute_system() -> None:
-    """Mute the system volume."""
-    _set_volume(mute=True)
+    """Mute the system volume using standard Windows virtual key events."""
+    if windows.IS_WINDOWS and windows.user32:
+        # VK_VOLUME_MUTE = 0xAD
+        windows.user32.keybd_event(0xAD, 0, 0, 0)
+        windows.user32.keybd_event(0xAD, 0, 2, 0)
+    logger.info("Volume mute toggled")
 
 
 def unmute_system() -> None:
-    """Unmute the system volume."""
-    _set_volume(mute=False)
-
-
-def _set_volume(mute: bool) -> None:
-    """Set system mute state via the Windows volume API (ctypes)."""
-    if not windows.IS_WINDOWS:
-        logger.debug("Volume control: not on Windows, skipping")
-        return
-    try:
-        import ctypes
-        from ctypes import wintypes
-
-        # Use the IAudioEndpointVolume COM interface
-        # This is a simplified approach using the MMSystem key-event as fallback
-        # For reliability, send the Windows mute hotkey (PrtScn-independent)
-        # We use the "Volume mute" via sending the numpad approach is unreliable,
-        # so we use COM.
-        ctypes.windll.ole32.CoInitialize(None)
-
-        # IID_IAudioEndpointVolume
-        IID_IAudioEndpointVolume = ctypes.guid(
-            "{5CD2E8F2-466A-4C0A-8C38-C588412472DF}"
-        )
-        # This full COM path is complex; fall back to a hotkey for muting.
-        # Windows has no universal mute hotkey, so we use the COM interface minimally.
-        logger.info("Volume mute set to: %s", mute)
-        ctypes.windll.ole32.CoUninitialize()
-    except Exception:
-        logger.exception("Volume control failed")
+    """Unmute the system volume using Windows volume-up key event."""
+    if windows.IS_WINDOWS and windows.user32:
+        # Volume Up (0xAF) automatically unmutes audio on Windows
+        windows.user32.keybd_event(0xAF, 0, 0, 0)
+        windows.user32.keybd_event(0xAF, 0, 2, 0)
+        windows.user32.keybd_event(0xAE, 0, 0, 0)
+        windows.user32.keybd_event(0xAE, 0, 2, 0)
+    logger.info("Volume unmuted")

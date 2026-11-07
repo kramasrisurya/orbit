@@ -10,6 +10,7 @@ Respects the per-type toggles in the `notifications` config section.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from pathlib import Path
@@ -176,7 +177,9 @@ class PhoneNotifier:
                 asyncio.run_coroutine_threadsafe(
                     self._ws.broadcast("notification", payload), loop
                 )
+                logger.info("Notification scheduled for broadcast via ws._loop")
                 return True
+            logger.warning("No running loop found for WebSocket notification: loop=%s", loop)
             return False
         except Exception:
             logger.exception("WebSocket notification send failed")

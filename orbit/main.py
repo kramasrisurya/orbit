@@ -48,6 +48,7 @@ from health.stress import StressMonitor
 from health.daily_report import DailyReport
 from productivity.focus import FocusSessionManager
 from productivity.clipboard_sync import ClipboardSync
+from productivity.universal_control import UniversalControl
 from dashboard.websocket import DashboardWebSocket
 from dashboard.server import DashboardServer
 
@@ -141,7 +142,10 @@ class OrbitApp:
             notifier=self.notifier,
             intruder_repo=self.intruder_repo,
             camera_index=self.config.vision_camera_index,
+            phone_server=self.phone_ws,
+            vision=self.vision,
         )
+        self.vision.set_frame_sink(self.intruder.record_frame)
 
         # --- Health ---
         self.posture = PostureMonitor(
@@ -180,6 +184,10 @@ class OrbitApp:
             bus=self.bus,
             ws_server=self.phone_ws,
         )
+        self.universal_control = UniversalControl(
+            bus=self.bus,
+            enabled=True,
+        )
 
         # --- Dashboard ---
         self.dash_ws = DashboardWebSocket(self.bus)
@@ -192,12 +200,69 @@ class OrbitApp:
             stats_repo=self.stats_repo,
             pairing_manager=self.pairing,
             ws=self.dash_ws,
+            focus_manager=self.focus,
+            vision_engine=self.vision,
+            clipboard_sync=self.clipboard,
+            universal_control=self.universal_control,
+            phone_server=self.phone_ws,
         )
 
         # --- Event logging (persist all events to DB) ---
         self.bus.subscribe("__all__", self._log_event)
 
+        # --- Dashboard commands ---
+        self.bus.subscribe("DASHBOARD_COMMAND", self._on_dashboard_command)
+
         self._shutdown_event = asyncio.Event()
+
+    def _on_dashboard_command(self, event) -> None:
+        """Execute commands dispatched from the dashboard."""
+        cmd = event.payload or {}
+        action = cmd.get("action")
+        logger.info("OrbitApp executing dashboard command: %s", action)
+        if action == "lock":
+            from utils.windows import lock_workstation
+            lock_workstation()
+        elif action == "switch_mode":
+            mode = cmd.get("mode", "work")
+            self.mode_manager.switch_mode(mode)
+        elif action == "focus_start":
+            from core.event_bus import OrbitEvent, FOCUS_SESSION_START
+            self.bus.publish(OrbitEvent(type=FOCUS_SESSION_START, source="dashboard", payload={}))
+        elif action == "focus_end":
+            from core.event_bus import OrbitEvent, FOCUS_SESSION_END
+            self.bus.publish(OrbitEvent(type=FOCUS_SESSION_END, source="dashboard", payload={}))
+        elif action in ("pause_camera", "resume_camera", "toggle_camera"):
+            paused = cmd.get("paused")
+            if paused is None:
+                if action == "pause_camera":
+                    paused = True
+                elif action == "resume_camera":
+                    paused = False
+            if paused is None:
+                self.vision.toggle_camera_pause()
+            else:
+                self.vision.set_camera_paused(bool(paused))
+        elif action == "toggle_eco":
+            enabled = cmd.get("enabled")
+            if enabled is None:
+                self.vision.toggle_eco_mode()
+            else:
+                self.vision.set_eco_mode(bool(enabled))
+        elif action == "take_snapshot":
+            self.vision.capture_snapshot()
+        elif action == "toggle_stay_awake":
+            current = self.presence.is_stay_awake()
+            if current:
+                self.presence.remove_stay_awake("manual_override")
+            else:
+                self.presence.add_stay_awake("manual_override")
+        elif action == "toggle_universal_control":
+            enabled = cmd.get("enabled")
+            if enabled is None:
+                self.universal_control.set_enabled(not self.universal_control.is_enabled())
+            else:
+                self.universal_control.set_enabled(bool(enabled))
 
     def _log_event(self, event) -> None:
         """Persist every event to the database."""
@@ -240,7 +305,10 @@ class OrbitApp:
         # 7. Clipboard sync (async background task)
         await self.clipboard.start()
 
-        # 8. Dashboard server (async)
+        # 8. Universal Control (edge cursor leap & typing)
+        self.universal_control.start()
+
+        # 9. Dashboard server (async)
         await self.dashboard.start()
 
         logger.info("=== ORBIT running ===")
@@ -258,6 +326,7 @@ class OrbitApp:
         logger.info("=== ORBIT shutting down ===")
 
         await self.dashboard.stop()
+        self.universal_control.stop()
         await self.clipboard.stop()
         await self.focus.stop_loop()
         await self.daily_report.stop()

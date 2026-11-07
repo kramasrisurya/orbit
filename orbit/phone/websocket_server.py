@@ -67,6 +67,7 @@ class PhoneWebSocketServer:
             return
         self._running = True
         self._loop = asyncio.get_running_loop()
+        self._bus.subscribe("UNIVERSAL_CONTROL_EVENT", self._on_universal_control)
         port = self._config.phone_websocket_port
         try:
             self._server = await websockets.serve(
@@ -142,7 +143,7 @@ class PhoneWebSocketServer:
 
     async def _handshake(self, ws: WebSocketServerProtocol) -> tuple[str | None, bool]:
         """
-        Perform the AES handshake.
+        Perform the AES handshake with support for Base64 and Hex encodings.
         Returns (device_id, success).
         """
         key = crypto.load_key()
@@ -151,35 +152,46 @@ class PhoneWebSocketServer:
             return (None, False)
 
         try:
-            # 1. Receive nonce from phone
-            nonce_b64 = await asyncio.wait_for(ws.recv(), timeout=10)
-            nonce = secrets.token_bytes(16)  # we generate our own for the challenge
-            # (The phone's nonce is used to derive the session key)
-            phone_nonce = base64_decode(nonce_b64)
+            import base64
 
-            # 2. Derive session key
+            # 1. Receive nonce from phone
+            nonce_raw = await asyncio.wait_for(ws.recv(), timeout=10)
+            phone_nonce = base64_decode(nonce_raw)
+
+            # 2. Derive session key using HKDF-SHA256
             session_key = crypto.derive_session_key(key, phone_nonce)
 
-            # 3. Send encrypted challenge
+            # 3. Send encrypted challenge as Base64
             challenge = secrets.token_hex(8)
             encrypted = crypto.encrypt(challenge.encode(), session_key)
-            await ws.send(encrypted.hex())
+            await ws.send(base64.b64encode(encrypted).decode("ascii"))
 
-            # 4. Phone should echo the challenge back (encrypted)
+            # 4. Phone echoes the challenge back (encrypted with session_key)
             response = await asyncio.wait_for(ws.recv(), timeout=10)
-            response_bytes = bytes.fromhex(response)
+            try:
+                response_bytes = base64.b64decode(response)
+            except Exception:
+                response_bytes = bytes.fromhex(response)
             decrypted = crypto.decrypt(response_bytes, session_key)
             if decrypted.decode() != challenge:
+                logger.warning("Handshake challenge mismatch: %s != %s", decrypted.decode(), challenge)
                 return (None, False)
 
             # 5. Receive device_id
             device_id = await asyncio.wait_for(ws.recv(), timeout=10)
             device_id = device_id.strip()
 
-            # Store the session key for this device (in-memory)
-            self._session_keys: dict[str, bytes] = getattr(self, "_session_keys", {})
+            # Store the session key for this device
+            if not hasattr(self, "_session_keys"):
+                self._session_keys = {}
             self._session_keys[device_id] = session_key
 
+            # 6. Send handshake confirmation to phone
+            confirm_msg = json.dumps({"type": "handshake_ok", "device_id": device_id}).encode("utf-8")
+            confirm_enc = crypto.encrypt(confirm_msg, session_key)
+            await ws.send(base64.b64encode(confirm_enc).decode("ascii"))
+
+            logger.info("Handshake successfully completed for phone %s", device_id)
             return (device_id, True)
         except asyncio.TimeoutError:
             logger.warning("Handshake timed out")
@@ -193,16 +205,22 @@ class PhoneWebSocketServer:
     # ------------------------------------------------------------------
     async def _on_message(self, device_id: str, raw: str | bytes) -> None:
         try:
-            data = raw if isinstance(raw, bytes) else raw.encode()
-            # Try to decrypt
+            import base64
             session_key = getattr(self, "_session_keys", {}).get(device_id)
+            plaintext = None
             if session_key is not None:
                 try:
-                    plaintext = crypto.decrypt(data, session_key)
-                except Exception:
-                    plaintext = data  # fall back to raw
-            else:
-                plaintext = data
+                    raw_str = raw if isinstance(raw, str) else raw.decode("utf-8")
+                    try:
+                        raw_bytes = base64.b64decode(raw_str)
+                    except Exception:
+                        raw_bytes = bytes.fromhex(raw_str)
+                    plaintext = crypto.decrypt(raw_bytes, session_key)
+                except Exception as e:
+                    logger.debug("Decryption fallback: %s", e)
+
+            if plaintext is None:
+                plaintext = raw if isinstance(raw, bytes) else raw.encode("utf-8")
 
             msg = json.loads(plaintext.decode("utf-8"))
             mtype = msg.get("type", "")
@@ -222,11 +240,68 @@ class PhoneWebSocketServer:
                     type=PHONE_REMOTE_COMMAND, source="phone",
                     payload={"action": msg.get("action", ""), "device_id": device_id},
                 ))
-            elif mtype == "clipboard":
+            elif mtype in ("clipboard", "clipboard_update"):
+                text = msg.get("text", "")
+                if text:
+                    self._bus.publish(OrbitEvent(
+                        type=CLIPBOARD_SYNC, source="phone",
+                        payload={"text": text, "device_id": device_id},
+                    ))
+                    try:
+                        from utils.windows import set_clipboard
+                        set_clipboard(text)
+                        logger.info("Synchronized phone clipboard to Windows: %d chars", len(text))
+                    except Exception as e:
+                        logger.warning("Could not set Windows clipboard: %s", e)
+            elif mtype in ("biometric_reenroll_approved", "biometric_approved"):
+                token = msg.get("token", "")
+                logger.info("Received biometric reenroll approval from phone (token: %s)", token)
                 self._bus.publish(OrbitEvent(
-                    type=CLIPBOARD_SYNC, source="phone",
-                    payload={"text": msg.get("text", ""), "device_id": device_id},
+                    type="BIOMETRIC_REENROLL_APPROVED", source="phone",
+                    payload={"token": token, "device_id": device_id},
                 ))
+            elif mtype == "cam_control":
+                action = msg.get("action", "")
+                act = "pause_camera" if "pause" in action else "resume_camera"
+                self._bus.publish(OrbitEvent(
+                    type=PHONE_REMOTE_COMMAND, source="phone",
+                    payload={"action": act, "device_id": device_id},
+                ))
+            elif mtype == "mouse_move":
+                dx = int(msg.get("dx", 0))
+                dy = int(msg.get("dy", 0))
+                if dx != 0 or dy != 0:
+                    try:
+                        from utils.windows import move_cursor
+                        move_cursor(dx, dy)
+                        logger.info("Universal trackpad move: (%d, %d)", dx, dy)
+                    except Exception as e:
+                        logger.error("mouse_move error: %s", e)
+            elif mtype == "mouse_click":
+                button = msg.get("button", "left")
+                try:
+                    from utils.windows import mouse_click
+                    mouse_click(button)
+                    logger.info("Universal trackpad click: %s", button)
+                except Exception as e:
+                    logger.error("mouse_click error: %s", e)
+            elif mtype == "mouse_scroll":
+                dy = int(msg.get("dy", 0))
+                try:
+                    from utils.windows import mouse_scroll
+                    mouse_scroll(dy)
+                    logger.info("Universal trackpad scroll: %d", dy)
+                except Exception as e:
+                    logger.error("mouse_scroll error: %s", e)
+            elif mtype == "remote_type":
+                text = msg.get("text", "")
+                if text:
+                    try:
+                        from utils.windows import type_text
+                        type_text(text)
+                        logger.info("Universal remote typing: %s", text)
+                    except Exception as e:
+                        logger.error("remote_type error: %s", e)
             elif mtype == "geo":
                 status = msg.get("status", "")
                 etype = PHONE_GEO_LEFT if status == "left" else PHONE_GEO_RETURNED
@@ -258,6 +333,16 @@ class PhoneWebSocketServer:
         except Exception:
             logger.exception("Error handling phone message")
 
+    def _on_universal_control(self, event: OrbitEvent) -> None:
+        """Broadcast universal control cursor leaps and actions to connected phone."""
+        if not self._phones:
+            return
+        loop = getattr(self, "_loop", None)
+        if loop and loop.is_running():
+            asyncio.run_coroutine_threadsafe(
+                self.broadcast("universal_control", event.payload or {}), loop
+            )
+
     # ------------------------------------------------------------------
     # Outbound
     # ------------------------------------------------------------------
@@ -270,12 +355,14 @@ class PhoneWebSocketServer:
             return False
         session_key = getattr(self, "_session_keys", {}).get(phone_id)
         msg = json.dumps({"type": type, **payload}).encode()
+        logger.info("send_notification to %s: type=%s, size=%d bytes, encrypted=%s", phone_id, type, len(msg), session_key is not None)
         try:
             if session_key is not None:
                 data = crypto.encrypt(msg, session_key)
-                await ws.send(data.hex())
+                import base64
+                await ws.send(base64.b64encode(data).decode("ascii"))
             else:
-                await ws.send(msg)
+                await ws.send(msg.decode("utf-8"))
             return True
         except Exception:
             logger.exception("Failed to send notification to %s", phone_id)
