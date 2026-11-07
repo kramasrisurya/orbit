@@ -21,15 +21,13 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Set up Android SDK
-      uses: android-actions/setup-android@v3
-
-    - name: Set up Gradle
-      uses: gradle/actions/setup-gradle@v3
-
-    - name: Build APK with Gradle
+    - name: Grant execute permission for gradlew
       working-directory: orbit-phone
-      run: gradle assembleDebug --stacktrace
+      run: chmod +x gradlew
+
+    - name: Build APK with Gradle Wrapper
+      working-directory: orbit-phone
+      run: ./gradlew assembleDebug --stacktrace
 
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
