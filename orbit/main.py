@@ -357,8 +357,12 @@ class OrbitApp:
                 pass
 
         logger.info("Press Ctrl+C to stop")
-        await self._shutdown_event.wait()
-        await self.stop()
+        try:
+            await self._shutdown_event.wait()
+        except (asyncio.CancelledError, KeyboardInterrupt):
+            pass
+        finally:
+            await self.stop()
 
 
 def main() -> None:
@@ -367,7 +371,7 @@ def main() -> None:
     try:
         asyncio.run(app.run())
     except KeyboardInterrupt:
-        logger.info("Interrupted")
+        logger.info("Orbit shutdown complete")
 
 
 if __name__ == "__main__":

@@ -9,8 +9,9 @@ aiohttp>=3.9.0
 # Vision
 opencv-python>=4.8.0
 mediapipe>=0.10.0
-face-recognition>=1.3.0
-dlib>=19.24.0
+# dlib/face-recognition optional (ORBIT uses bundled OpenCV SFace ONNX deep learning models)
+# face-recognition>=1.3.0
+# dlib>=19.24.0
 Pillow>=10.0.0
 numpy>=1.24.0
 

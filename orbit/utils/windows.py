@@ -229,7 +229,7 @@ def simulate_activity() -> None:
 
 
 def move_cursor(dx: int, dy: int) -> None:
-    """Move cursor by (dx, dy) and update position."""
+    """Move cursor smoothly by (dx, dy) without duplicate relative event jitter."""
     if not IS_WINDOWS or not user32:
         return
     try:
@@ -237,7 +237,6 @@ def move_cursor(dx: int, dy: int) -> None:
         pt = POINT()
         if user32.GetCursorPos(ctypes.byref(pt)):
             user32.SetCursorPos(pt.x + dx, pt.y + dy)
-        user32.mouse_event(MOUSEEVENTF_MOVE, dx, dy, 0, 0)
     except Exception as e:
         logger.error("Failed to move cursor: %s", e)
 
