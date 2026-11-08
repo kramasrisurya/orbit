@@ -72,18 +72,20 @@ class handler(BaseHTTPRequestHandler):
             self._add_cors_headers()
             self.end_headers()
         elif path in ('/api/pairing_qr', '/api/pairing-qr'):
-            hub_host = self.headers.get('Host', 'orbit-system-eight.vercel.app')
+            query_params = urllib.parse.parse_qs(parsed.query)
+            ip = query_params.get('ip', ['192.168.1.100'])[0]
+            key = "b3JiaXRfcGFpcmluZ19rZXlfMjU2Yml0c19hdXRoX3NlY3VyZQ=="
             qr_data = json.dumps({
-                "hub": f"wss://{hub_host}/ws",
-                "name": "ORBIT Cloud Edge",
-                "version": "1.0.0"
+                "key": key,
+                "ip": ip,
+                "port": 8765
             })
             qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(qr_data)}"
             self._send_json(200, {
                 "ok": True,
-                "ip": hub_host,
-                "port": "443 (SSL/TLS)",
-                "token": "cloud-verified",
+                "key": key,
+                "ip": ip,
+                "port": 8765,
                 "qr_url": qr_url,
                 "download_apk": "https://github.com/kramasrisurya/orbit/actions"
             })
