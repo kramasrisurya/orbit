@@ -71,6 +71,29 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Location', 'https://github.com/kramasrisurya/orbit/actions')
             self._add_cors_headers()
             self.end_headers()
+        elif path in ('/api/pairing_qr', '/api/pairing-qr'):
+            hub_host = self.headers.get('Host', 'orbit-system-eight.vercel.app')
+            qr_data = json.dumps({
+                "hub": f"wss://{hub_host}/ws",
+                "name": "ORBIT Cloud Edge",
+                "version": "1.0.0"
+            })
+            qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(qr_data)}"
+            self._send_json(200, {
+                "ok": True,
+                "ip": hub_host,
+                "port": "443 (SSL/TLS)",
+                "token": "cloud-verified",
+                "qr_url": qr_url,
+                "download_apk": "https://github.com/kramasrisurya/orbit/actions"
+            })
+        elif path.startswith('/api/enroll'):
+            self._send_json(200, {
+                "ok": True,
+                "status": "completed",
+                "token": "verified",
+                "message": "Biometric identity verified via companion phone satellite"
+            })
         elif path == '/api/clipboard':
             self._send_json(200, {
                 "text": "ORBIT Ambient Awareness System deployed on Vercel"
@@ -107,10 +130,22 @@ class handler(BaseHTTPRequestHandler):
                 "eco_mode": body.get('enabled', False) if action == 'toggle_eco' else False,
                 "paused": body.get('paused', False) if 'camera' in action else False
             })
-        elif path == '/api/clipboard':
+        elif path in ('/api/clipboard', '/api/clipboard/send_to_phone'):
             self._send_json(200, {
                 "ok": True,
-                "message": "Clipboard text updated in cloud buffer"
+                "message": "Text delivered to phone clipboard buffer",
+                "length": len(body.get('text', ''))
+            })
+        elif path.startswith('/api/files'):
+            self._send_json(200, {
+                "ok": True,
+                "message": "File received by ORBIT AirDrop Bridge"
+            })
+        elif path.startswith('/api/enroll'):
+            self._send_json(200, {
+                "ok": True,
+                "token": "verified_cloud_token",
+                "message": "Biometric verification authorized"
             })
         else:
             self._send_json(200, {

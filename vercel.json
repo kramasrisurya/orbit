@@ -3,6 +3,9 @@
   "version": 2,
   "cleanUrls": true,
   "trailingSlash": false,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.py" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
