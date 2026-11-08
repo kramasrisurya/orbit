@@ -73,8 +73,8 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
         elif path in ('/api/pairing_qr', '/api/pairing-qr'):
             query_params = urllib.parse.parse_qs(parsed.query)
-            ip = query_params.get('ip', ['192.168.1.100'])[0]
-            key = "b3JiaXRfcGFpcmluZ19rZXlfMjU2Yml0c19hdXRoX3NlY3VyZQ=="
+            ip = query_params.get('ip', ['10.100.231.12'])[0]
+            key = "GqAv+w1AhVw1lujOWX5SqCu0j/RltwbkrYPs2tBJfZM="
             qr_data = json.dumps({
                 "key": key,
                 "ip": ip,
