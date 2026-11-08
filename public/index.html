@@ -2627,5 +2627,76 @@
       updateGlider(activeMode);
     });
   </script>
+
+  <!-- ORBIT DIAGNOSTIC CLI TERMINAL -->
+  <div id="orbit-cli-widget" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; font-family: monospace;">
+    <button id="orbit-cli-toggle" onclick="toggleOrbitTerminal()" style="background: linear-gradient(135deg, #06b6d4, #3b82f6); color: #fff; border: none; padding: 10px 18px; border-radius: 9999px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 20px rgba(6,182,212,0.4); display: flex; align-items: center; gap: 8px;">
+      <span>🖥 ORBIT DIAGNOSTICS</span>
+      <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px #10b981;"></span>
+    </button>
+
+    <div id="orbit-cli-window" style="display: none; width: 380px; max-width: 90vw; height: 320px; background: rgba(10, 15, 29, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(6,182,212,0.3); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); margin-top: 10px; flex-direction: column; overflow: hidden;">
+      <div style="background: rgba(6,182,212,0.1); border-bottom: 1px solid rgba(6,182,212,0.2); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 11px; color: #06b6d4; font-weight: 700;">ORBIT V1.0 DIAGNOSTICS TERMINAL</span>
+        <button onclick="toggleOrbitTerminal()" style="background: transparent; border: none; color: #94a3b8; font-size: 16px; cursor: pointer;">✕</button>
+      </div>
+      <div id="orbit-cli-logs" style="flex: 1; padding: 10px; font-size: 11px; color: #cbd5e1; overflow-y: auto; line-height: 1.4;">
+        <div style="color: #06b6d4;">ORBIT Live Telemetry Engine Connected.</div>
+        <div style="color: #64748b;">Type 'help' to inspect available diagnostics commands.</div>
+      </div>
+      <form id="orbit-cli-form" onsubmit="handleOrbitCliSubmit(event)" style="display: flex; border-top: 1px solid rgba(6,182,212,0.2); background: rgba(0,0,0,0.4);">
+        <span style="color: #06b6d4; padding: 8px 0 8px 10px; font-size: 12px;">&gt;</span>
+        <input id="orbit-cli-input" type="text" placeholder="status, ping, scan, intruder..." style="flex: 1; background: transparent; border: none; outline: none; padding: 8px; color: #fff; font-size: 11px; font-family: monospace;" />
+        <button type="submit" style="background: #06b6d4; color: #000; border: none; padding: 0 12px; font-size: 10px; font-weight: bold; cursor: pointer;">RUN</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function toggleOrbitTerminal() {
+      const win = document.getElementById('orbit-cli-window');
+      const isHidden = win.style.display === 'none' || !win.style.display;
+      win.style.display = isHidden ? 'flex' : 'none';
+      if (isHidden) {
+        document.getElementById('orbit-cli-input').focus();
+      }
+    }
+
+    function appendOrbitLog(msg, color) {
+      const logs = document.getElementById('orbit-cli-logs');
+      const div = document.createElement('div');
+      div.style.color = color || '#cbd5e1';
+      div.style.marginTop = '4px';
+      div.innerHTML = msg;
+      logs.appendChild(div);
+      logs.scrollTop = logs.scrollHeight;
+    }
+
+    function handleOrbitCliSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('orbit-cli-input');
+      const cmd = input.value.trim().toLowerCase();
+      if (!cmd) return;
+      appendOrbitLog('&gt; ' + cmd, '#06b6d4');
+      input.value = '';
+
+      if (cmd === 'help') {
+        appendOrbitLog('Available commands:<br>• <b>status</b> - System telemetry & security state<br>• <b>ping</b> - Edge roundtrip latency check<br>• <b>scan</b> - Run biometric face mesh verification<br>• <b>intruder</b> - Simulate visual breach event<br>• <b>clear</b> - Reset terminal buffer');
+      } else if (cmd === 'status') {
+        appendOrbitLog('<b>STATUS: HEALTHY</b><br>• Engine: Orbit YOLO + FaceNet Edge<br>• Inference Latency: 14.2ms<br>• Cam FOV: 84° active<br>• Lock Policy: Auto-Engaged on Proximity Breach', '#10b981');
+      } else if (cmd === 'ping') {
+        appendOrbitLog('PING edge.orbit.internal: time=8.4ms TTL=64 (100% packet integrity)', '#38bdf8');
+      } else if (cmd === 'scan') {
+        appendOrbitLog('Initiating 468-point 3D facial landmark mesh scan...<br><span style="color:#10b981;">✓ Verified Owner Profile (99.2% confidence). Device state: UNLOCKED</span>');
+      } else if (cmd === 'intruder') {
+        appendOrbitLog('<span style="color:#ef4444; font-weight:bold;">⚠️ ALERT: Unrecognized subject detected in perimeter! Engaging instant auto-lockdown protocol.</span>');
+      } else if (cmd === 'clear') {
+        document.getElementById('orbit-cli-logs').innerHTML = '<div style="color: #06b6d4;">ORBIT Live Telemetry Engine Connected.</div>';
+      } else {
+        appendOrbitLog('Command not recognized: "' + cmd + '". Type "help" for diagnostic commands.', '#f87171');
+      }
+    }
+  </script>
+
 </body>
 </html>
