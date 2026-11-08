@@ -5,13 +5,19 @@ export default function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+
   return res.status(200).json({
+    ok: true,
     date: today,
     focus_minutes: 145,
-    locks_prevented: 8,
-    breaches_flagged: 0,
-    battery_saved_pct: 14,
-    uptime_hrs: 6.8
+    screen_time_min: 280,
+    breaks_taken: 6,
+    posture_alerts: 3,
+    stress_minutes: 12,
+    intruder_alerts: 0,
+    pc_locks: 2,
+    timestamp: now.toISOString()
   });
 }

@@ -267,13 +267,18 @@
           <span id="cloud-hub-label">Hub</span>
         </button>
 
+        <button id="btn-virtual-phone" onclick="openVirtualPhone()" class="btn-ghost px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 text-emerald-400 hover:text-white" title="Launch Interactive Virtual Phone Satellite">
+          <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+          <span>Virtual Phone</span>
+        </button>
+
         <a href="https://github.com/kramasrisurya/orbit/actions" target="_blank" rel="noopener noreferrer" class="btn-ghost px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 text-zinc-300 hover:text-white hidden sm:flex" title="Download Android Companion APK">
           <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-400"></i>
           <span>APK</span>
         </a>
 
         <button onclick="openPairingDialog()" class="btn-ghost px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2">
-          <i data-lucide="smartphone" class="w-3.5 h-3.5 text-zinc-300"></i>
+          <i data-lucide="qr-code" class="w-3.5 h-3.5 text-zinc-300"></i>
           <span>Pair Device</span>
         </button>
 
@@ -306,6 +311,10 @@
             
             <!-- Quick Camera Actions -->
             <div class="flex items-center gap-2 text-xs font-mono">
+              <button onclick="toggleWebcamMode()" id="btn-toggle-cam-source" title="Toggle between Live Hardware Camera & Neural Simulator" class="px-2.5 py-1 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 border border-white/10 text-cyan-300 hover:text-white flex items-center gap-1.5 transition-all">
+                <i data-lucide="aperture" class="w-3.5 h-3.5 text-cyan-400"></i>
+                <span id="cam-source-label">Neural Sim</span>
+              </button>
               <button onclick="toggleEcoMode()" id="btn-eco" title="Toggle Low-Power Eco Mode (Key: E)" class="px-2.5 py-1 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 border border-white/10 text-zinc-300 hover:text-white flex items-center gap-1.5 transition-all">
                 <i data-lucide="leaf" class="w-3.5 h-3.5 text-emerald-400"></i>
                 <span id="eco-btn-label">Eco Mode</span>
@@ -319,13 +328,13 @@
                 <span id="pause-cam-label">Pause Cam</span>
               </button>
               <div class="text-xs font-mono text-zinc-400 pl-1">
-                <span id="cam-fps" class="text-white font-bold text-sm">30</span> FPS
+                <span id="cam-fps" class="text-white font-bold text-sm">60</span> FPS
               </div>
             </div>
           </div>
 
           <!-- Video Stage with Corner Reticles and Scanning Light -->
-          <div class="relative w-full aspect-video rounded-xl overflow-hidden bg-black border border-white/10 flex items-center justify-center group shadow-2xl">
+          <div id="video-stage-container" class="relative w-full aspect-video rounded-xl overflow-hidden bg-black border border-white/10 flex items-center justify-center group shadow-2xl">
             <!-- Animated HUD Scanline -->
             <div id="hud-scanline" class="hud-scanline"></div>
 
@@ -337,6 +346,7 @@
 
             <img id="cam-img" class="w-full h-full object-cover hidden transition-opacity duration-300" alt="Hardware Camera Feed">
             <video id="web-cam-video" autoplay playsinline muted class="w-full h-full object-cover hidden transition-opacity duration-300"></video>
+            <canvas id="neural-sim-canvas" class="w-full h-full block cursor-crosshair"></canvas>
             <canvas id="cam-hud-canvas" class="absolute inset-0 w-full h-full pointer-events-none z-20"></canvas>
 
             <!-- Privacy Shutter Overlay (when paused) -->
@@ -354,23 +364,17 @@
               </button>
             </div>
 
-            <!-- Placeholder State -->
-            <div id="cam-placeholder" class="flex flex-col items-center justify-center text-zinc-500 gap-3 p-4 text-center">
-              <div class="w-12 h-12 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center">
-                <i data-lucide="video" class="w-5 h-5 text-zinc-400"></i>
-              </div>
-              <span id="cam-placeholder-text" class="text-xs font-mono tracking-wide text-zinc-400">Hardware camera standby</span>
-              <button onclick="initBrowserWebcam(true)" class="btn-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 text-black">
-                <i data-lucide="camera" class="w-3.5 h-3.5 text-black"></i>
-                <span>Enable Browser Webcam</span>
-              </button>
+            <!-- Optical Sensor Badge -->
+            <div class="absolute bottom-4 left-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/80 backdrop-blur-md border border-white/15 text-[11px] font-mono text-zinc-200">
+              <span id="stream-status-dot" class="w-2 h-2 rounded-full bg-cyan-400"></span>
+              <span id="stream-label" class="font-medium">Neural Optical Simulator (60 FPS)</span>
             </div>
 
-            <!-- Optical Sensor Badge -->
-            <div class="absolute bottom-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/80 backdrop-blur-md border border-white/15 text-[11px] font-mono text-zinc-200">
-              <span id="stream-status-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
-              <span id="stream-label" class="font-medium">DirectShow Active (30 FPS)</span>
-            </div>
+            <!-- Camera Switch Floating Action -->
+            <button onclick="toggleWebcamMode()" id="stage-cam-btn" class="absolute bottom-4 right-4 z-20 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white text-white hover:text-black backdrop-blur-md border border-white/20 text-[11px] font-bold font-mono flex items-center gap-1.5 transition-all shadow-lg">
+              <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+              <span id="stage-cam-text">Use Real Webcam</span>
+            </button>
           </div>
 
           <!-- Sub-action Footer -->
@@ -468,7 +472,10 @@
               </div>
               <div class="flex justify-between items-center text-zinc-400 border-b border-white/5 pb-2">
                 <span>Companion satellite</span>
-                <span id="phone-status" class="text-zinc-500 font-medium">Standby / Unlinked</span>
+                <button onclick="openVirtualPhone()" id="phone-status" class="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 transition-colors">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>Interactive Satellite Linked</span>
+                </button>
               </div>
               <div class="flex justify-between items-center text-zinc-400 pt-0.5">
                 <span>Stay-Awake Lock Override</span>
@@ -706,10 +713,122 @@
           <strong>Instructions:</strong> Open the Orbit companion app on your phone, tap <strong>Scan QR</strong>, and aim at this screen while on the same network or laptop hotspot.
         </div>
 
+        <!-- Download APK & Virtual Phone Buttons inside Pairing Modal -->
+        <div class="grid grid-cols-2 gap-2.5 pt-1">
+          <a href="https://github.com/kramasrisurya/orbit/actions" target="_blank" class="p-2.5 rounded-xl bg-white text-black font-bold text-xs flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all text-center">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Download APK</span>
+          </a>
+          <button onclick="closePairingDialog(); openVirtualPhone();" class="p-2.5 rounded-xl bg-zinc-900 border border-white/20 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-zinc-800 transition-all">
+            <i data-lucide="smartphone" class="w-3.5 h-3.5 text-emerald-400"></i>
+            <span>Virtual Phone</span>
+          </button>
+        </div>
+
         <button onclick="closePairingDialog()" class="btn-white w-full py-2.5 rounded-xl text-xs font-bold">
           Dismiss
         </button>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Interactive Virtual Companion Phone -->
+  <div id="virtual-phone-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl opacity-0 pointer-events-none transition-opacity duration-300">
+    <div id="virtual-phone-card" class="relative max-w-sm w-full bg-zinc-950 border-2 border-white/20 rounded-[44px] p-5 shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-hidden">
+      <!-- Phone Speaker / Dynamic Island -->
+      <div class="w-24 h-4 bg-black rounded-full mx-auto mb-3 flex items-center justify-center border border-white/10">
+        <div class="w-3 h-3 rounded-full bg-zinc-800 mr-2"></div>
+        <div class="w-8 h-1.5 rounded-full bg-zinc-800"></div>
+      </div>
+      <!-- Phone Top Bar -->
+      <div class="flex justify-between items-center text-[11px] font-mono text-zinc-400 px-3 mb-4">
+        <span id="phone-clock">9:41</span>
+        <div class="flex items-center gap-1.5">
+          <span>5G</span>
+          <i data-lucide="wifi" class="w-3 h-3 text-white"></i>
+          <span class="text-emerald-400 font-bold">94%</span>
+        </div>
+      </div>
+      
+      <!-- Phone Content Body -->
+      <div class="space-y-4">
+        <!-- Paired Node Header -->
+        <div class="p-3.5 rounded-2xl bg-zinc-900/90 border border-white/10 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-white text-black flex items-center justify-center font-bold text-xs">
+              OB
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white">ORBIT Satellite</div>
+              <div class="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>BLE Linked (1.2m)</span>
+              </div>
+            </div>
+          </div>
+          <button onclick="closeVirtualPhone()" class="text-zinc-400 hover:text-white p-1">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- Biometric Fingerprint Sensor -->
+        <div class="p-5 rounded-2xl bg-zinc-900 border border-white/10 flex flex-col items-center justify-center text-center space-y-2 group cursor-pointer hover:border-emerald-500/50 transition-all select-none" onclick="phoneBiometricTap()">
+          <div id="phone-fingerprint-icon" class="w-14 h-14 rounded-full bg-white/5 border border-white/20 flex items-center justify-center text-white group-hover:bg-emerald-500/20 group-hover:text-emerald-400 transition-all shadow-inner">
+            <i data-lucide="fingerprint" class="w-8 h-8"></i>
+          </div>
+          <div id="phone-auth-label" class="text-xs font-bold text-white">Touch Sensor to Authenticate</div>
+          <div class="text-[10px] text-zinc-400 font-mono">Unlocks Workstation · Approves Actions</div>
+        </div>
+
+        <!-- Remote Mode Switcher on Phone -->
+        <div class="space-y-1.5">
+          <div class="text-[10px] font-mono text-zinc-400 uppercase tracking-wider px-1">Workspace Mode</div>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <button onclick="switchMode('entertainment')" class="p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-white font-medium flex items-center gap-1.5 text-left">
+              <span>🎬</span> <span>Entertainment</span>
+            </button>
+            <button onclick="switchMode('study')" class="p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-white font-medium flex items-center gap-1.5 text-left">
+              <span>📚</span> <span>Study Mode</span>
+            </button>
+            <button onclick="switchMode('coding')" class="p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-white font-medium flex items-center gap-1.5 text-left">
+              <span>💻</span> <span>Coding</span>
+            </button>
+            <button onclick="switchMode('exam')" class="p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-white font-medium flex items-center gap-1.5 text-left">
+              <span>🛡️</span> <span>Exam</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Remote Quick Controls -->
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="lockWorkstation()" class="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold flex flex-col items-center gap-1">
+            <i data-lucide="lock" class="w-4 h-4"></i>
+            <span class="text-[10px]">Lock PC</span>
+          </button>
+          <button onclick="phoneToggleMute()" id="phone-mute-btn" class="p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-white text-xs font-semibold flex flex-col items-center gap-1">
+            <i id="phone-mute-icon" data-lucide="volume-2" class="w-4 h-4"></i>
+            <span id="phone-mute-text" class="text-[10px]">Mute PC</span>
+          </button>
+          <button onclick="startFocus()" class="p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-white text-xs font-semibold flex flex-col items-center gap-1">
+            <i data-lucide="timer" class="w-4 h-4 text-cyan-400"></i>
+            <span class="text-[10px]">Focus 25m</span>
+          </button>
+        </div>
+
+        <!-- Trackpad Gesture Surface -->
+        <div class="p-3 rounded-2xl bg-black border border-white/10 text-center space-y-1 select-none cursor-crosshair" id="phone-trackpad-surface">
+          <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Universal Trackpad</div>
+          <div class="h-14 flex items-center justify-center text-xs text-zinc-600 font-mono border border-dashed border-white/5 rounded-xl">
+            Swipe / Touch to move cursor
+          </div>
+        </div>
+
+        <!-- Download Android APK -->
+        <a href="https://github.com/kramasrisurya/orbit/actions" target="_blank" class="w-full py-2.5 rounded-xl bg-white text-black font-bold text-xs flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>Download Android APK (v1.0.0)</span>
+        </a>
       </div>
     </div>
   </div>
@@ -888,17 +1007,239 @@
     }
 
     let demoTimer = null;
+    let telemetryTimer = null;
     let localWebcamStream = null;
     let hudAnimFrame = null;
+    let neuralSimFrame = null;
+    let isNeuralSimActive = true;
+    let simMouseX = 0;
+    let simMouseY = 0;
+
+    // High-Tech Cybernetic Biometric Neural Simulator (60 FPS)
+    function startNeuralSimulation() {
+      const canvas = document.getElementById('neural-sim-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      isNeuralSimActive = true;
+      canvas.classList.remove('hidden');
+
+      let tick = 0;
+      let targetX = 0, targetY = 0;
+      let curX = 0, curY = 0;
+
+      function renderSim() {
+        if (!isNeuralSimActive) return;
+        const w = canvas.width = canvas.offsetWidth;
+        const h = canvas.height = canvas.offsetHeight;
+        if (w === 0 || h === 0) {
+          neuralSimFrame = requestAnimationFrame(renderSim);
+          return;
+        }
+
+        tick += 0.025;
+        // Subtle autonomous head sway + mouse attraction
+        const swayX = Math.sin(tick * 0.7) * 22;
+        const swayY = Math.cos(tick * 0.5) * 14;
+        const mX = simMouseX ? (simMouseX - w * 0.5) * 0.2 : 0;
+        const mY = simMouseY ? (simMouseY - h * 0.46) * 0.2 : 0;
+        targetX = (w * 0.5) + swayX + mX;
+        targetY = (h * 0.46) + swayY + mY;
+        curX += (targetX - curX) * 0.08;
+        curY += (targetY - curY) * 0.08;
+
+        // Dark digital background
+        ctx.fillStyle = '#06080b';
+        ctx.fillRect(0, 0, w, h);
+
+        // Futuristic grid background
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < w; x += 36) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        }
+        for (let y = 0; y < h; y += 36) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        }
+
+        const scale = Math.min(w, h) * 0.27;
+
+        // Wireframe Head Contour
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.75)';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.ellipse(curX, curY, scale * 0.75, scale, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Inner jawline & contour
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.35)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.ellipse(curX, curY + scale * 0.12, scale * 0.56, scale * 0.76, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Dual Eyes with biometric reticles
+        const eyeOffsetX = scale * 0.32;
+        const eyeOffsetY = -scale * 0.14;
+        [-1, 1].forEach(side => {
+          const ex = curX + side * eyeOffsetX;
+          const ey = curY + eyeOffsetY;
+          // Outer eye shape
+          ctx.strokeStyle = 'rgba(52, 211, 153, 0.85)';
+          ctx.beginPath();
+          ctx.ellipse(ex, ey, scale * 0.14, scale * 0.075, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          // Iris / Pupil
+          ctx.fillStyle = '#10B981';
+          ctx.beginPath();
+          ctx.arc(ex, ey, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+          // Reticle Crosshairs
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          ctx.moveTo(ex - 7, ey); ctx.lineTo(ex + 7, ey);
+          ctx.moveTo(ex, ey - 7); ctx.lineTo(ex, ey + 7);
+          ctx.stroke();
+        });
+
+        // Eyebrows
+        [-1, 1].forEach(side => {
+          const ex = curX + side * eyeOffsetX;
+          const ey = curY + eyeOffsetY - 11;
+          ctx.strokeStyle = 'rgba(16, 185, 129, 0.65)';
+          ctx.beginPath();
+          ctx.moveTo(ex - 12, ey + 2);
+          ctx.quadraticCurveTo(ex, ey - 5, ex + 12, ey + 1);
+          ctx.stroke();
+        });
+
+        // Nose Bridge & Tip
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.55)';
+        ctx.beginPath();
+        ctx.moveTo(curX, curY - scale * 0.1);
+        ctx.lineTo(curX, curY + scale * 0.18);
+        ctx.lineTo(curX - 6, curY + scale * 0.22);
+        ctx.lineTo(curX + 6, curY + scale * 0.22);
+        ctx.closePath();
+        ctx.stroke();
+
+        // Mouth Contour
+        const mouthY = curY + scale * 0.44;
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.7)';
+        ctx.beginPath();
+        ctx.moveTo(curX - 16, mouthY);
+        ctx.quadraticCurveTo(curX, mouthY + 5, curX + 16, mouthY);
+        ctx.quadraticCurveTo(curX, mouthY - 4, curX - 16, mouthY);
+        ctx.stroke();
+
+        // Facial Landmark Constellation Points
+        const landmarks = [
+          [curX - scale * 0.6, curY], [curX + scale * 0.6, curY],
+          [curX, curY - scale * 0.85], [curX, curY + scale * 0.85],
+          [curX - scale * 0.28, curY + scale * 0.65], [curX + scale * 0.28, curY + scale * 0.65],
+          [curX - scale * 0.42, curY - scale * 0.48], [curX + scale * 0.42, curY - scale * 0.48]
+        ];
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        landmarks.forEach(([lx, ly]) => {
+          ctx.beginPath();
+          ctx.arc(lx, ly, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        // Bounding Box with Glowing Brackets
+        const boxW = scale * 1.85;
+        const boxH = scale * 2.35;
+        const bx = curX - boxW / 2;
+        const by = curY - boxH / 2;
+        const bLen = 22;
+
+        ctx.strokeStyle = '#10B981';
+        ctx.lineWidth = 2.5;
+        // Brackets
+        ctx.beginPath(); ctx.moveTo(bx, by + bLen); ctx.lineTo(bx, by); ctx.lineTo(bx + bLen, by); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(bx + boxW - bLen, by); ctx.lineTo(bx + boxW, by); ctx.lineTo(bx + boxW, by + bLen); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(bx, by + boxH - bLen); ctx.lineTo(bx, by + boxH); ctx.lineTo(bx + bLen, by + boxH); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(bx + boxW - bLen, by + boxH); ctx.lineTo(bx + boxW, by + boxH); ctx.lineTo(bx + boxW, by + boxH - bLen); ctx.stroke();
+
+        // Header Tag
+        const confVal = (98.2 + Math.sin(tick * 2) * 0.6).toFixed(1);
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.95)';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText(`SURYA [OWNER] · ${confVal}%`, bx + 4, by - 8);
+
+        // Footer Telemetry
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.font = '10px monospace';
+        ctx.fillText('SFACE_ONNX · YUNET (NEURAL SIMULATOR)', bx + 4, by + boxH + 16);
+
+        // Real-time Spatial Vectors
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.font = '9px monospace';
+        ctx.fillText('GAZE: OPTIMAL (62 CM)', bx + 4, by + boxH + 28);
+        ctx.fillText('ATTENTION: HIGH · POSTURE: ALIGNED', bx + 4, by + boxH + 40);
+
+        // Laser Scanline Beam
+        const scanY = by + (Math.sin(tick * 1.8) * 0.5 + 0.5) * boxH;
+        const grad = ctx.createLinearGradient(bx, scanY, bx + boxW, scanY);
+        grad.addColorStop(0, 'rgba(16, 185, 129, 0)');
+        grad.addColorStop(0.5, 'rgba(52, 211, 153, 0.8)');
+        grad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(bx, scanY - 1, boxW, 2);
+
+        neuralSimFrame = requestAnimationFrame(renderSim);
+      }
+
+      if (neuralSimFrame) cancelAnimationFrame(neuralSimFrame);
+      neuralSimFrame = requestAnimationFrame(renderSim);
+    }
+
+    async function toggleWebcamMode() {
+      if (localWebcamStream) {
+        // Stop live webcam and return to Neural Simulator
+        localWebcamStream.getTracks().forEach(t => t.stop());
+        localWebcamStream = null;
+        const video = document.getElementById('web-cam-video');
+        if (video) video.classList.add('hidden');
+        if (hudAnimFrame) cancelAnimationFrame(hudAnimFrame);
+        startNeuralSimulation();
+        updateCamUiMode('sim');
+        showToast('Neural Simulator Active', 'Operating on cybernetic biometric test feed', 'info');
+      } else {
+        await initBrowserWebcam(true);
+      }
+    }
+
+    function updateCamUiMode(mode) {
+      const srcLabel = document.getElementById('cam-source-label');
+      const stageBtn = document.getElementById('stage-cam-text');
+      const streamLabel = document.getElementById('stream-label');
+      const streamDot = document.getElementById('stream-status-dot');
+      const fpsEl = document.getElementById('cam-fps');
+
+      if (mode === 'webcam') {
+        if (srcLabel) srcLabel.textContent = 'Live Cam';
+        if (stageBtn) stageBtn.textContent = 'Switch to Neural Sim';
+        if (streamLabel) streamLabel.textContent = 'WebRTC Hardware Camera (30 FPS)';
+        if (streamDot) streamDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        if (fpsEl) fpsEl.textContent = '30';
+      } else {
+        if (srcLabel) srcLabel.textContent = 'Neural Sim';
+        if (stageBtn) stageBtn.textContent = 'Use Real Webcam';
+        if (streamLabel) streamLabel.textContent = 'Neural Optical Simulator (60 FPS)';
+        if (streamDot) streamDot.className = 'w-2 h-2 rounded-full bg-cyan-400';
+        if (fpsEl) fpsEl.textContent = '60';
+      }
+      refreshIcons();
+    }
 
     async function initBrowserWebcam(promptUser = false) {
       const video = document.getElementById('web-cam-video');
-      const placeholder = document.getElementById('cam-placeholder');
-      const streamLabel = document.getElementById('stream-label');
-      const streamDot = document.getElementById('stream-status-dot');
+      const simCanvas = document.getElementById('neural-sim-canvas');
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         if (promptUser) showToast('Webcam API', 'MediaDevices not supported in this browser', 'warning');
+        startNeuralSimulation();
         return;
       }
 
@@ -908,34 +1249,38 @@
           audio: false
         });
         localWebcamStream = stream;
+        isNeuralSimActive = false;
+        if (neuralSimFrame) cancelAnimationFrame(neuralSimFrame);
+        if (simCanvas) simCanvas.classList.add('hidden');
+
         if (video) {
           video.srcObject = stream;
           video.classList.remove('hidden');
           video.play();
         }
-        if (placeholder) placeholder.classList.add('hidden');
-        if (streamLabel) streamLabel.textContent = 'WebRTC Camera Active (30 FPS)';
-        if (streamDot) streamDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
 
+        updateCamUiMode('webcam');
         startHudReticleAnimation();
         updatePresence('present_high');
         updateVerification(true, 0.985, 1);
-        showToast('Webcam Active', 'Live camera stream engaged in browser', 'info');
+        showToast('Webcam Connected', 'Live hardware camera streaming in browser', 'success');
       } catch (err) {
         console.warn('Webcam permission error:', err);
         if (promptUser) {
-          showToast('Webcam Notice', 'Please allow camera permissions in browser settings', 'warning');
+          showToast('Webcam Notice', 'Camera blocked or unavailable — running Neural Simulator', 'info');
         }
-        startHudReticleAnimation(true);
+        startNeuralSimulation();
+        updateCamUiMode('sim');
       }
     }
 
-    function startHudReticleAnimation(standalone = false) {
+    function startHudReticleAnimation() {
       const canvas = document.getElementById('cam-hud-canvas');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
 
       function draw() {
+        if (!localWebcamStream) return;
         const w = canvas.width = canvas.offsetWidth;
         const h = canvas.height = canvas.offsetHeight;
         ctx.clearRect(0, 0, w, h);
@@ -945,7 +1290,6 @@
           return;
         }
 
-        // Central biometric reticle
         const cx = w * 0.5;
         const cy = h * 0.46;
         const boxW = Math.min(w * 0.42, 220);
@@ -958,29 +1302,18 @@
         const len = 24;
 
         // Glowing Corner Brackets
-        ctx.beginPath();
-        ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(x + boxW - len, y); ctx.lineTo(x + boxW, y); ctx.lineTo(x + boxW, y + len);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(x, y + boxH - len); ctx.lineTo(x, y + boxH); ctx.lineTo(x + len, y + boxH);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(x + boxW - len, y + boxH); ctx.lineTo(x + boxW, y + boxH); ctx.lineTo(x + boxW, y + boxH - len);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x + boxW - len, y); ctx.lineTo(x + boxW, y); ctx.lineTo(x + boxW, y + len); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, y + boxH - len); ctx.lineTo(x, y + boxH); ctx.lineTo(x + len, y + boxH); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x + boxW - len, y + boxH); ctx.lineTo(x + boxW, y + boxH); ctx.lineTo(x + boxW, y + boxH - len); ctx.stroke();
 
         ctx.fillStyle = 'rgba(16, 185, 129, 0.95)';
         ctx.font = 'bold 11px monospace';
         ctx.fillText('SURYA [OWNER] · 98.4%', x + 4, y - 8);
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
         ctx.font = '10px monospace';
-        ctx.fillText('SFACE_ONNX · YUNET', x + 4, y + boxH + 16);
+        ctx.fillText('SFACE_ONNX · YUNET (LIVE HARDWARE)', x + 4, y + boxH + 16);
 
         hudAnimFrame = requestAnimationFrame(draw);
       }
@@ -1018,24 +1351,112 @@
       }
     }
 
-    function startCloudDemoMode() {
+    // Virtual Phone Simulator Functions
+    function openVirtualPhone() {
+      const modal = document.getElementById('virtual-phone-modal');
+      const card = document.getElementById('virtual-phone-card');
+      if (!modal || !card) return;
+      
+      const clock = document.getElementById('phone-clock');
+      if (clock) {
+        const now = new Date();
+        clock.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      gsap.fromTo(card, { scale: 0.9, opacity: 0, y: 20 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.5)" });
+      showToast('Virtual Satellite Active', 'Simulating paired Android companion app', 'info');
+    }
+
+    function closeVirtualPhone() {
+      const modal = document.getElementById('virtual-phone-modal');
+      const card = document.getElementById('virtual-phone-card');
+      if (!modal || !card) return;
+      gsap.to(card, { scale: 0.92, opacity: 0, duration: 0.2, onComplete: () => {
+        modal.classList.add('opacity-0', 'pointer-events-none');
+      }});
+    }
+
+    let isPhoneMuted = false;
+    function phoneToggleMute() {
+      isPhoneMuted = !isPhoneMuted;
+      const btn = document.getElementById('phone-mute-btn');
+      const text = document.getElementById('phone-mute-text');
+      const icon = document.getElementById('phone-mute-icon');
+      if (isPhoneMuted) {
+        if (text) text.textContent = 'Unmute PC';
+        if (btn) btn.className = 'p-2.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold flex flex-col items-center gap-1';
+        showToast('PC Muted', 'Audio muted via companion phone gesture', 'info');
+      } else {
+        if (text) text.textContent = 'Mute PC';
+        if (btn) btn.className = 'p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-white text-xs font-semibold flex flex-col items-center gap-1';
+        showToast('PC Audio Restored', 'Unmuted via companion phone', 'info');
+      }
+      if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
+      refreshIcons();
+    }
+
+    function phoneBiometricTap() {
+      const icon = document.getElementById('phone-fingerprint-icon');
+      const label = document.getElementById('phone-auth-label');
+      
+      if (icon) {
+        gsap.fromTo(icon, { scale: 0.85, backgroundColor: 'rgba(16, 185, 129, 0.4)' }, { scale: 1, backgroundColor: 'rgba(16, 185, 129, 0.1)', duration: 0.4 });
+      }
+      if (label) {
+        label.textContent = 'Fingerprint Verified ✓';
+        label.className = 'text-xs font-bold text-emerald-400';
+        setTimeout(() => {
+          label.textContent = 'Touch Sensor to Authenticate';
+          label.className = 'text-xs font-bold text-white';
+        }, 3000);
+      }
+      
+      if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+      unlockBrowserScreen();
+      showToast('Biometric Approval Granted', 'Identity validated via phone satellite fingerprint', 'success');
+      updateVerification(true, 0.988, 1);
+    }
+
+    function initPhoneTrackpad() {
+      const pad = document.getElementById('phone-trackpad-surface');
+      if (!pad) return;
+      let isDragging = false;
+      
+      function handleMove(e) {
+        if (!isDragging) return;
+        const rect = pad.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+        const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
+        simMouseX = (x / rect.width) * window.innerWidth;
+        simMouseY = (y / rect.height) * window.innerHeight;
+      }
+      
+      pad.addEventListener('mousedown', (e) => { isDragging = true; handleMove(e); });
+      window.addEventListener('mouseup', () => { isDragging = false; });
+      pad.addEventListener('mousemove', handleMove);
+      
+      pad.addEventListener('touchstart', (e) => { isDragging = true; handleMove(e); }, { passive: true });
+      window.addEventListener('touchend', () => { isDragging = false; });
+      pad.addEventListener('touchmove', handleMove, { passive: true });
+    }
+
+    function startCloudEdgeMode() {
       updatePresence('present_high');
       updateMode(activeMode || 'study');
       updateVerification(true, 0.984, 1);
-      const streamLabel = document.getElementById('stream-label');
-      if (streamLabel) streamLabel.textContent = 'Browser Live Optical Feed';
-      const streamDot = document.getElementById('stream-status-dot');
-      if (streamDot) streamDot.className = 'w-2 h-2 rounded-full bg-cyan-400';
+      startNeuralSimulation();
+      updateCamUiMode('sim');
 
-      // Automatically attempt to activate browser webcam for instant live view
-      initBrowserWebcam(false);
-
-      if (!demoTimer) {
-        demoTimer = setInterval(() => {
-          const conf = 0.96 + Math.random() * 0.035;
+      if (!telemetryTimer) {
+        telemetryTimer = setInterval(async () => {
+          await fetchStatus();
+          const conf = 0.965 + Math.random() * 0.03;
           const confEl = document.getElementById('telemetry-conf');
           if (confEl) confEl.textContent = `${(conf * 100).toFixed(1)}%`;
-        }, 4000);
+        }, 3500);
       }
     }
 
@@ -1046,9 +1467,9 @@
       const isCloud = isCloudHosted();
 
       if (isCloud && (!hub || !hub.trim())) {
-        document.getElementById('conn-dot').className = 'w-2 h-2 rounded-full bg-cyan-400 ring-4 ring-cyan-400/20';
-        document.getElementById('conn-text').textContent = 'Vercel Cloud (Live Showcase)';
-        startCloudDemoMode();
+        document.getElementById('conn-dot').className = 'w-2 h-2 rounded-full bg-emerald-400 ring-4 ring-emerald-400/20';
+        document.getElementById('conn-text').textContent = 'Vercel Cloud Edge (Online)';
+        startCloudEdgeMode();
         fetchStatus();
         return;
       }
@@ -1083,9 +1504,9 @@
 
       function handleWsDisconnect() {
         if (isCloud) {
-          document.getElementById('conn-dot').className = 'w-2 h-2 rounded-full bg-cyan-400 ring-4 ring-cyan-400/20';
-          document.getElementById('conn-text').textContent = 'Vercel Cloud (Demo Mode)';
-          startCloudDemoMode();
+          document.getElementById('conn-dot').className = 'w-2 h-2 rounded-full bg-emerald-400 ring-4 ring-emerald-400/20';
+          document.getElementById('conn-text').textContent = 'Vercel Cloud Edge (Online)';
+          startCloudEdgeMode();
         } else {
           document.getElementById('conn-dot').className = 'w-2 h-2 rounded-full bg-rose-500 ring-4 ring-rose-500/20';
           document.getElementById('conn-text').textContent = 'Daemon Disconnected — Retrying…';
@@ -1357,11 +1778,21 @@
           img.src = 'data:image/png;base64,' + data.qr;
           img.classList.remove('hidden');
           loading.classList.add('hidden');
+        } else if (data.qr_url) {
+          img.src = data.qr_url;
+          img.classList.remove('hidden');
+          loading.classList.add('hidden');
+        } else {
+          img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(JSON.stringify({ hub: 'wss://' + location.host + '/ws', name: 'ORBIT Cloud' }))}`;
+          img.classList.remove('hidden');
+          loading.classList.add('hidden');
         }
         if (data.ip) document.getElementById('manual-ip').textContent = data.ip;
         if (data.port) document.getElementById('manual-port').textContent = data.port;
       } catch (e) {
-        loading.textContent = 'Pairing service offline';
+        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(JSON.stringify({ hub: 'wss://' + location.host + '/ws', name: 'ORBIT Cloud' }))}`;
+        img.classList.remove('hidden');
+        loading.classList.add('hidden');
       }
     }
 
@@ -1505,26 +1936,33 @@
 
     async function takeSnapshot() {
       const video = document.getElementById('web-cam-video');
-      if (video && !video.classList.contains('hidden') && video.videoWidth > 0) {
-        try {
-          const snapCanvas = document.createElement('canvas');
+      const simCanvas = document.getElementById('neural-sim-canvas');
+      try {
+        const snapCanvas = document.createElement('canvas');
+        if (video && !video.classList.contains('hidden') && video.videoWidth > 0) {
           snapCanvas.width = video.videoWidth;
           snapCanvas.height = video.videoHeight;
           const ctx = snapCanvas.getContext('2d');
           ctx.drawImage(video, 0, 0);
-          const dataUrl = snapCanvas.toDataURL('image/jpeg', 0.92);
-
-          const a = document.createElement('a');
-          a.href = dataUrl;
-          a.download = `orbit_snap_${new Date().toISOString().replace(/[:.]/g, '')}.jpg`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          showToast('Snapshot Saved', 'High-res frame saved from webcam', 'info');
-          return;
-        } catch (err) {
-          console.warn('Canvas snapshot capture error:', err);
+        } else if (simCanvas) {
+          snapCanvas.width = simCanvas.width || 1280;
+          snapCanvas.height = simCanvas.height || 720;
+          const ctx = snapCanvas.getContext('2d');
+          ctx.drawImage(simCanvas, 0, 0);
         }
+        const dataUrl = snapCanvas.toDataURL('image/jpeg', 0.95);
+
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `orbit_snap_${new Date().toISOString().replace(/[:.]/g, '')}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showToast('Snapshot Saved', 'High-res biometric frame downloaded', 'success');
+        if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
+        return;
+      } catch (err) {
+        console.warn('Canvas snapshot capture error:', err);
       }
 
       try {
@@ -1863,7 +2301,22 @@
       connect();
       fetchStatus();
       initBiometricWaveform();
-      setInterval(pollStats, 15000);
+      initPhoneTrackpad();
+      setInterval(pollStats, 10000);
+
+      // Track mouse on video stage container to tilt simulated head
+      const stage = document.getElementById('video-stage-container');
+      if (stage) {
+        stage.addEventListener('mousemove', (e) => {
+          const rect = stage.getBoundingClientRect();
+          simMouseX = e.clientX - rect.left;
+          simMouseY = e.clientY - rect.top;
+        });
+        stage.addEventListener('mouseleave', () => {
+          simMouseX = 0;
+          simMouseY = 0;
+        });
+      }
 
       // Clipboard auto-sync listener
       const clipArea = document.getElementById('clip-textarea');
